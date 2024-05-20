@@ -1,0 +1,1041 @@
+% ! Start Of Chapter:
+\renewcommand{\image}[3]{\globimage{#1}{1}{#2}{#3}}
+\renewcommand{\imagec}[4]{\globimagec{#1}{1}{#2}{#3}{#4}}
+\renewcommand{\graphics}[2]{\includegraphics[scale=#2]{Images/Chapter 1/#1}}
+\section{Parallel Computing}
+\begin{minipage}{0.3\textwidth}
+\centering
+\par \textbf{Parallel Computer}: Computational system composed of multiple processing elements so that it may execute multiple operations or execution flows execute simultaneously.
+\end{minipage}
+\hfill\vrule\hfill
+\begin{minipage}{0.3\textwidth}
+\centering
+\par \textbf{Parallel Computing}: \\Execution model that leverages parallel computers to execute multiple operations or execution flows simultaneously.
+\end{minipage}
+\hfill\vrule\hfill
+\begin{minipage}{0.3\textwidth}
+\vrule
+\centering
+\par \textbf{Parallel Programming}: Programming model on which a program’s execution is decomposed into several tasks (that will be executed by a parallel computing model) with the goal of improving performance.
+\end{minipage}
+\subsection{Why Parallel Computing?}
+\begin{enumerate}
+    \item \textbf{Processor Evolution}: Around 2005, Single-Core performance hit a barrier, as in it is still increasing, but it's not increasing as much as before. Also, as we know from \textit{Moore's Law}, the number of transistors in a circuit doubles every year, so it's important to leverage this space, in this case with more cores that, when used with parallel programming, lead to more efficiency. 
+    \item \textbf{Software Requirements}: Highly complex problems and/or lots of data to process that need to be solved/processed ƒast, like resource use, climate modeling, image rendering and others. 
+\end{enumerate}
+\par In order resolve a problem using parallel computing, we decompose the problem among the processing execution flows (in our case, processes/threads). Like this, all execution flows work on their part of the problem, sometimes having the need to communicate to or synchronize with other parts of the algorithm.
+\par \large{\textbf{Base Programming Models:}}
+\begin{itemize}
+    \item \textbf{Distributed Memory}: Parallel system based on processors linked with a fast network; processors communicate via messages.
+    \item \textbf{Shared Memory}: Distribute elements to processors/cores; each processor updates its own elements in main memory.
+\end{itemize}
+\subsection{Parallel Architectures: Flynn's Taxonomy}
+\begin{table}[h]
+\centering
+\begin{tabular}{c|cc|}
+\cline{2-3}
+                                           & Single Data & Multiple Data \\ \hline
+\multicolumn{1}{|c|}{Single Instruction}   & SISD        & SIMD          \\
+\multicolumn{1}{|c|}{Multiple Instruction} & MISD        & MIMD          \\ \hline
+\end{tabular}
+\end{table}
+\subsubsection{SISD: Single Instruction Single Data}
+\image{SISD1.png}{0.33}{SISD1}
+\clearpage
+\subsubsection{SIMD: Single Instruction Multiple Data}
+\image{SIMD1.png}{0.6}{SIMD1}
+\begin{center}
+    \par \Large{SISD vs. SIMD}   
+\end{center}
+    \begin{table}[h]
+    \centering
+    \begin{tabular}{|l|l|l|l|l|}
+    \cline{1-1} \cline{3-3} \cline{5-5}
+    a & + & a & = & 2a \\ \cline{1-1} \cline{3-3} \cline{5-5} 
+    b & + & b & = & 2b \\ \cline{1-1} \cline{3-3} \cline{5-5} 
+    c & + & c & = & 2c \\ \cline{1-1} \cline{3-3} \cline{5-5} 
+    d & + & d & = & 2d \\ \cline{1-1} \cline{3-3} \cline{5-5} 
+    \end{tabular}
+    \hspace{1cm}
+    \begin{tabular}{|l|l|l|l|l|}
+\cline{1-1} \cline{3-3} \cline{5-5}
+a & + & a & = & 2a \\
+b & + & b & = & 2b \\
+c & + & c & = & 2c \\
+d & + & d & = & 2d \\ \cline{1-1} \cline{3-3} \cline{5-5} 
+\end{tabular}
+    \end{table}
+\par Vector machines, such as the Cray-1 and modern GPUs like the Nvidia 4090, are specialized for parallel processing, performing the same operation on multiple data points simultaneously. Originally designed for scientific computations, vector machines have evolved into GPUs that handle a wide range of tasks beyond graphics.
+\subsubsection{MIMD: Multiple Instruction Multiple Data}
+\image{MIMD1.png}{0.55}{MIMD1}
+\clearpage
+\begin{itemize}
+    \item \textbf{MIMD Shared Memory:}
+    \begin{itemize}
+        \item Symetric MultiProcessor (SMP) Architecture
+        \image{MIMD2.png}{0.25}{MIMD2}
+        \item Nonuniform memory access (NUMA) architecture
+        \image{MIMD3.png}{0.45}{MIMD3}
+    \end{itemize}
+    \item \textbf{MIMD Distributed Memory:}
+    \begin{itemize}
+        \item Nonuniform memory access (NUMA) architecture
+        \image{MIMD4.png}{0.3}{MIMD4}
+    \end{itemize}
+\end{itemize}
+\par \textbf{Typical Distributed Memory MIMD Architecture of Today}: Composed of multiple nodes connected via high speed local networks and each node is a \textbf{NUMA} node with multiple multi-core processors. Also each node may also have 1 or more GPUs.
+\note{Multiple Instruction, Single Data (\textbf{MISD}), is not considered particularly useful and is generally not used in practice.}
+\clearpage
+\subsection{Base Parallel Programming Models}
+\par Let's say that we want to simulate a car crash. This example is useful due to it illustrating various aspects common to many simulations and applications. With this example, the car is modeled by a triangulated surface. The simulation models the movement of the elements, incorporating the forces on the elements to determine their new position when the crash occurs. In each time step, the movement of each element depends on its interaction with the other elements to which it is physically adjacent. In a crash, elements may end up touching other elements that were not touching initially. The state of an element is its location, velocity, and information such as whether it is metal that is bending.
+\par If we parallelise this crash, we must think of:
+\begin{itemize}
+    \item Where the various elements of the car live:
+    \begin{itemize}
+        \item In a single memory
+        \item Partitioned
+    \end{itemize}
+    \item What work will be done by each processor
+    \item The processors need to coordinate to get a single result (how?)
+\end{itemize}
+\subsubsection{Shared Memory}
+\begin{minipage}{0.5\textwidth}
+    \par This model consists of a shared memory address space. It is typically easier to program. It grants \textit{implicit} communication via shared data and \textit{explicit} synchronization to access data.
+    \\
+    \par \textbf{Programming Methodology}:
+    \begin{itemize}
+        \item \textbf{Manual}: Use of standard libraries that use threading or explicit use of threading.
+        \item \textbf{Automatic}: Use of parallelizing compilers or \textit{\textbf{OpenMP}} directives.
+    \end{itemize}
+\end{minipage}
+\begin{minipage}{0.5\textwidth}
+    \centering
+    \graphics{sharedmemory1.png}{0.28}
+\end{minipage}
+\subsubsection{Message Passing}
+\par This model is relatively hard to program. First, \textbf{data distribution} is done across different processes or threads, often even running on different computers, so managing this data requires a careful  design. Also concerning \textbf{communication via messages}, processes communicate by explicitly sending and receiving messages.  This explicit communication requires programmers to define the communication protocols and data exchange formats. Finally \textbf{synchronization via messages}, which unlike shared-memory models where synchronization primitives like \textit{mutexes} and condition variables are used, message-passing models rely on message exchanges to achieve synchronization among processes. This can involve sending signals or specific data values that indicate the status of a process or the completion of a task.
+%
+\clearpage
+%
+\begin{minipage}{0.5\textwidth}
+    \par \textbf{Programming Methodology}:
+  \begin{itemize}
+      \item Explicit message passing:
+      \begin{itemize}
+          \item Explicit data distribution;
+          \item Explicit communication via messages;
+          \item Explicit synchronisation;
+          \item Plenty of libraries to chose from.
+      \end{itemize}
+      \item Distributed computing frameworks:
+      \begin{itemize}
+          \item Explicit data distribution;
+          \item Implicit communication and synchronization via messages;
+          \item Spark, Map Reduce.
+      \end{itemize}
+  \end{itemize}
+\end{minipage}
+\begin{minipage}{0.5\textwidth}
+    \centering
+    \graphics{messagepassing1.png}{0.28}
+\end{minipage}
+\subsubsection*{Hybrid Parallel Programming}
+\begin{minipage}{0.5\textwidth}
+    \par Two level parallelism with:
+    \begin{itemize}
+        \item Message passing between the main tasks;
+        \item Shared memory parallelism for intra main task parallelism (sub-tasks)
+    \end{itemize}
+\end{minipage}
+\begin{minipage}{0.5\textwidth}
+    \centering
+    \graphics{hybridparallel.png}{0.45}
+\end{minipage}
+\par So we can conclude:
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|c|c|}
+\hline
+\begin{tabular}[c]{@{}l@{}}Programming/Architecture\\ Model\end{tabular} & \begin{tabular}[c]{@{}c@{}}Shared Memory\\ Architecture\end{tabular} & \begin{tabular}[c]{@{}c@{}}Distributed Memory\\ Architecture\end{tabular} \\ \hline
+Shared Memory                                                            & \cmark                                                                    & \cmark                                                                         \\ \hline
+Message Passing                                                          & \cmark                                                                    & \cmark                                                                         \\ \hline
+\end{tabular}
+\end{table}
+\par Lets return to the car crash example:
+\image{carsim1.png}{0.4}{carsim1}
+\par For the sequential example, we would just have each element compute its properties and state based on their neighbours.
+%
+\clearpage
+%
+\par But for a parallel version with shared memory car, in which pieces are decomposed:
+\image{carsim2.png}{0.3}{carsim2}
+\par At the end of each computation, a synchronize is needed, because it ensures that all processors have completed their computations for a given timestep before any processor begins the next timestep.
+\par For a parallel version with message passing
+\image{carsim3.png}{0.35}{carsim3}
+\par In this example, synchronization is not enough and so, at the end of each computation, we need to communicate the contents of these ghost cells to neighbours.
+\subsection{Parallel Algorithm Design}
+\par To use a scalable parallel computer, we must be able to write
+parallel programs. We must understand the programming model and the
+programming languages, libraries, and systems software used to
+implement it, and unfortunately this isn't easy.
+\par Parallel programs often start as sequential programs because they are \textbf{easy to write} and \textbf{easy to debug}. After the program is complete and working, we find the \textbf{hotspots} and then make our program parallel starting with the hotspots first, by making sequences of small changes followed by testing.
+\begin{center}
+    \tbluebox{Steps to Parallel Programming}{
+    \begin{enumerate}
+        \item Find Concurrency;
+        \item Structure the algorithm so that concurrency can be exploited;
+        \item Implement the algorithm in a suitable programming environment;
+        \item Execute and tune the performance of the code on a parallel system.
+    \end{enumerate}
+    }
+\end{center}
+%
+\clearpage
+%
+\subsubsection{Finding Concurrency}
+\par In order to find the hotspots, the alternatives are basically:
+\begin{itemize}
+    \item Code Inspection;
+    \item Performance Analysis tools, like:
+    \begin{itemize}
+        \item perf;
+        \item gprof.
+    \end{itemize}
+\end{itemize}
+\image{howtoparallel1.png}{0.35}{howtoparallel1}
+\begin{enumerate}
+    \item \textbf{Decomposition}
+    \par Usually the programmer is responsible for this step, since automatic decomposition is still a challenge due to compilers having to analyze programs and identify dependencies. These however may be input-dependent and thus only be known at runtime.
+    \note{Parallel patterns, such as map, reduce, scan, ..., may abstract away decomposition details}
+    \begin{enumerate}
+        \item \textbf{Task Decomposition}
+        \par Problem is broken down into tasks to be performed. Individual tasks are created and communicate to coordinate operations. Some guidelines are:
+        \begin{itemize}
+            \item \textbf{Flexibility}: Program design should afford flexibility in the \textbf{number} and the \textbf{size} of tasks generated, so tasks should not tie to a specific architecture (Fixed Tasks vs. Parameterized Tasks).
+            \item \textbf{Efficiency}: Tasks (usually) should have \textbf{enough work} that justifies the cost of creating and managing them. Tasks should be \textbf{sufficiently independent} so that managing dependencies doesn’t become the bottleneck.
+            \item \textbf{Simplicity}: The code must remain \textbf{readable}, \textbf{easy to understand} and \textbf{easy to debug}.
+        \end{itemize}
+%
+\clearpage
+%
+        \item \textbf{Data Decomposition}
+        \par Problem is viewed as operations of parallel data. Data is distributed across processes and computed locally. Some guidelines are:
+        \begin{itemize}
+            \item \textbf{Flexibility}: Size and number of data chunks should support a \textbf{wide range of executions};
+            \item \textbf{Efficiency}:
+            \begin{itemize}
+                \item Data chunks should generate \textbf{considerable amounts of work} (adequate grain), to minimize impact of communication and management;
+                \item Data chunks should generate \textbf{comparable amounts of work}, for load balancing;
+            \end{itemize}
+            \item \textbf{Simplicity}: Complex data compositions can get difficult to manage and debug.
+        \end{itemize}
+        \par Common data decomposition: \label{geodec}
+        \begin{itemize}
+            \item Geometric Data Structures: Decomposition of n-dimensional arrays along rows, column, blocks.
+            \item Recursive data structures: Like list, tree, graph.
+        \end{itemize}
+    \end{enumerate}
+    \item \textbf{Algorithmic Structure Design Space}
+    \image{asds1.png}{0.4}{asds1}
+\end{enumerate}
+% TODO: Ver exemplo dos slides das moléculas CP2 45
+%
+\clearpage
+%
+\subsubsection{Algorithm Structure: Multicore Architectures}
+\begin{enumerate}
+    \item \textbf{Master/Worker Pattern}
+    \par A master process or thread sets up a pool of worker processes or threads, and a bag of tasks. The workers execute concurrently, with each worker repeatedly removing a task from the bag of tasks.
+    \image{masterworker1.png}{0.35}{masterworker1}
+    \item \textbf{Loop Parallelism Pattern}
+    \par Many programs are expressed using iterative constructs. Programming models like OpenMP provide directives to automatically assign loop iteration to worker threads. Especially good when code cannot be massively restructured.
+\image{looppattern1.png}{0.4}{looppattern1}
+    \item \textbf{Fork/Join Pattern} \label{forkjoin}
+    \par A main task forks off some number of other tasks that then
+continue in parallel to accomplish some portion of the overall
+work. Parent tasks creates new tasks (\textbf{fork}) then waits until all they
+complete (\textbf{join}) before continuing with the computation.
+\image{fork1.png}{0.5}{fork1}
+%
+\clearpage
+%
+\item \textbf{Pipeline Pattern} \label{pipeline}
+\par The pipeline pattern refers to a design where different stages of a computation are executed in parallel, each on a separate core or set of cores, with the output of one stage becoming the input for the next. This pattern is especially useful for tasks that can be broken down into a sequence of dependent steps.
+\imagec{pipe1.png}{0.4}{4 Stages Pipeline}{pipe1}
+\end{enumerate}
+%
+%
+% AULA 3
+%
+%
+%
+\subsection{Dependences}
+\par Parallel execution shall always be constrained by the sequence of operations needed to be performed for a correct result. Parallel execution must address control, data, and system dependences.
+\par A \textbf{dependence} arises when one operation (B) depends on an earlier operation (A) to complete and produce a result before (B) can be performed.
+\note{This notion of dependence is extended to resources since some operations may depend on certain resources (for example, due to where data is located).}
+\subsubsection{Independent versus Dependent Statements}
+\par Let's suppose we want to execute two statements: $S1$ and $S2$. If we were to execute them in one processor, we would just execute $S1$ first and $S2$ second, but if we execute them in parallel, we assign $S1$ to \textbf{\textit{Processor 1}} and $S2$ to \textbf{\textit{Processor 2}}. We assume that the processors execute independent of each other and make no assumptions about the speed of the execution. Given this, we have 2 cases:
+\begin{itemize}
+    \item \textbf{Case 1}: $S1$ is executed before $S2$;
+    \item \textbf{Case 2}: $S2$ is executed before $S1$.
+\end{itemize}
+\par A shared memory system is said to support the sequential consistency model if all processes see the same order of all memory access operations on the shared memory. The exact order in which the memory access operations are interleaved does not matter.
+\par So, If statement execution does not interfere with (are independent of ) each other, \textbf{Sequential Consistency} is achieved, because the computation result is equal in either \enquote{Case 1} or \enquote{Case 2}.
+\definition{Independant Statements}{Two statements are independent of each other if the execution of $S1$, $S2$ is equivalent to $S2$, $S1$, which means their order of execution does not matter.}
+%
+\clearpage
+%
+\definition{Dependant Statements}{Two statements are dependent when the order of their execution affects the computation outcome.}
+\begin{itemize}
+    \item {\Large \textbf{True Dependence}}
+    \par $S2$ has a \textbf{true (flow) dependence} on $S1$ if and only if $S2$ reads a value written by $S1$ (\textbf{RAW} - Read After Write).
+    \par
+    \begin{minipage}{0.7\textwidth}
+        \centering
+        \graphics{truedep.png}{0.6}
+        \begin{itemize}
+            \item Second statement is dependent on first statement.
+        \end{itemize}
+    \end{minipage}
+    \begin{minipage}{0.2\textwidth}
+        \textit{Example:}
+        \bluebox{
+        $S1$: $a=1$
+        $S2$: $b=a$
+        }
+    \end{minipage}
+    \item {\Large \textbf{Anti-dependence}}
+    \par $S2$ has an \textbf{anti-dependence} on $S1$ if and only if $S2$ writes a value read by $S1$ (\textbf{WAR} - Write After Read).
+    \par
+    \begin{minipage}{0.7\textwidth}
+        \centering
+        \graphics{antidep.png}{0.6}
+        \begin{itemize}
+            \item First statement is dependent on the Second statement.
+        \end{itemize}
+    \end{minipage}
+    \begin{minipage}{0.2\textwidth}
+        \textit{Example:}
+        \bluebox{
+        $S1$: $a=b$
+        $S2$: $b=1$
+        }
+    \end{minipage}
+    \item {\Large \textbf{Output Dependence}}
+    \par $S2$ has an \textbf{output dependence} on $S1$ if and only if $S2$ writes a variable written by $S1$ (\textbf{WAW} - Write After Write).
+    \par
+    \begin{minipage}{0.7\textwidth}
+        \centering
+        \graphics{outdep.png}{0.6}
+        \begin{itemize}
+            \item Second statement is dependent on first.
+        \end{itemize}
+    \end{minipage}
+    \begin{minipage}{0.2\textwidth}
+        \textit{Example:}
+        \bluebox{
+        $S1$: $a=f(x)$
+        $S2$: $a=b$
+        }
+    \end{minipage}
+\end{itemize}
+\subsubsection{Statement Dependence Graphs}
+\par We can use graphs to show dependence relationships. for example:\\
+\begin{minipage}{0.25\textwidth}
+    \bluebox{
+        $S1$: $a=1$;\\
+        $S2$: $b=a$;\\
+        $S3$: $a=b+1$;\\
+        $S4$: $c=a$;
+    }
+\end{minipage}
+\begin{minipage}{0.75\textwidth}
+\centering
+    \graphics{depgraph.png}{0.35}
+\end{minipage}
+\begin{itemize}
+    \item $S1$ $\delta$ $S2$ \quad or \quad $S1 \rightarrow^T S2$ \qquad $S2$ is flow-dependent on $S1$
+    \item $S2$ $\delta$ $S3$ \quad or \quad $S2 \rightarrow^T S3$ \qquad $S3$ is flow-dependent on $S2$
+    \item $S3$ $\delta$ $S4$ \quad or \quad $S3 \rightarrow^T S4$ \qquad $S4$ is flow-dependent on $S3$
+    \item $S1$ $\delta^0$ $S3$ \quad or \quad $S1 \rightarrow^0 S3$ \qquad $S3$ is output-dependent on $S1$
+    \item $S2$ $\delta^{-1}$ $S3$ \quad or \quad $S2 \rightarrow^{-1} S3$ \qquad $S3$ is anti-dependent on $S2$
+\end{itemize}
+\bluebox{Two statements execute in parallel if and only if there are \textbf{no dependencies}. Some dependencies can be removed by modifying the program, like rearranging statements and Eliminating statements between them.}
+\subsubsection{Computing Dependences}
+\par Data dependence relations can be found by comparing the $in$ and $out$ sets of each node.
+\definition{$in$ and $out$ sets of a statement $S$}{
+\begin{itemize}
+    \item $in(S)$: Set of memory locations (variables) that may be used (read) in $S$;
+    \item $out(S)$: Set of memory locations (variables) that may be modified (written) by $S$.
+\end{itemize}
+}
+\note{These sets include all memory locations that may be fetched or modified, as such, the sets can be conservatively large.}
+\par Assuming that there is an execution path \textbf{from $S1$ to $S2$} , the following shows how to intersect their $in$ and $out$ sets to test for data dependence:
+\begin{align*}
+    out(S1) \cap in(S2) \neq \emptyset \qquad &S1 \text{ } \delta \text{ } S2 \qquad \text{flow dependence} \\
+    in(S1) \cap out(S2) \neq \emptyset \qquad &S1 \text{ } \delta^{-1} \text{ } S2 \qquad \text{anti-dependence} \\
+    out(S1) \cap out(S2) \neq \emptyset \qquad &S1 \text{ } \delta^0 \text{ } S2 \qquad \text{output dependence}
+\end{align*}
+\subsubsection{Loop Level Parallelism}
+\par Statements’ dependences include true dependences, anti-dependences and output dependences. Loop dependences also include those \textbf{carried from one execution of the loop to another}.
+\par A \textbf{loop-carried dependence} is a dependence between two statements instances in two different iterations of a loop. Loop-carried dependences can prevent loop iteration parallelization.
+\par For example:
+\begin{center}
+    \begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black]
+    \centering
+            \begin{lstlisting}[label={lst:truecode}, language=Java, morekeywords={S1}]
+for (i=1; i<n; i++) {
+    S1: a[i] = a[i-1];
+}\end{lstlisting}
+    \end{tcolorbox}
+    \par \textbf{True Dependence}: The memory location \enquote{$a[j]$} is written before it is read in the next iteration of the loop.
+    \par \textbf{$S1[j]$ $\delta$ $S1[j+1]$}
+%
+\clearpage
+%
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black]
+    \centering
+            \begin{lstlisting}[label={lst:anticode}, language=Java, morekeywords={S1}]
+for (i=1; i<n-1; i++) {
+    S1: a[i] = a[i+1];
+}\end{lstlisting}
+    \end{tcolorbox}
+    \par \textbf{Anti-Dependence}: The memory location \enquote{$a[j]$} is read before it is written in the next iteration of the loop.
+    \par \textbf{$S1[j]$ $\delta^{-1}$ $S1[j+1]$}
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black]
+    \centering
+            \begin{lstlisting}[label={lst:outcode}, language=Java, morekeywords={S1,S2}]
+for (i=0; i<n-1; i++) {
+    S1: a[i] = i;
+    S2: a[i+1] = 5;
+}\end{lstlisting}
+    \end{tcolorbox}
+    \par \textbf{Output Dependence}: The same memory location \enquote{$a[j]$} is written (in $S2$) and then written again in the next iteration of the loop (in $S1$).
+    \par \textbf{$S2[j]$ $\delta^0$ $S1[j+1]$}
+\end{center}
+\par \textbf{Detecting Dependences}: To detect these, we must analyze how each variable is used within a loop iteration.
+\begin{itemize}
+    \item Is the variable read and never written? Then there are no dependances.
+    \item For each written variable: can there be any accesses in other iterations than the current? Then there are dependences.
+\end{itemize}
+\par \textbf{Simple rule of thumb} - A loop that matches the following criteria \textbf{has no dependences} and can be parallelized:
+\begin{enumerate}
+    \item All assignments to shared data are to arrays;
+    \item Each element is assigned by at most one iteration;
+    \item No iteration reads elements assigned by any other iteration.
+\end{enumerate}
+\note{It is encouraged you go check the examples present in the slides from lecture 4 Pg. 28-45}
+\subsection{Parallel Patterns}
+\par \textbf{Parallel Patterns}: A recurring combination of task distribution and data access that solves a specific problem in parallel algorithm design. Patterns provide us with a \enquote{vocabulary} for algorithm design. Patterns are universal, meaning they can be used in any parallel programming system. It can be useful to compare parallel patterns with serial patterns.
+\begin{itemize}
+    \item \textbf{{\large Nesting Pattern}}
+    \par Nesting is the ability to hierarchically compose patterns. This pattern appears in both serial and parallel algorithms. Each "task block" can in turn be another pattern in the nesting pattern. “Pattern diagrams” are used to visually show the pattern idea, where each “task block” is a location of general code in an algorithm.
+%
+\clearpage
+%
+    \item Serial Control Patterns:
+    \par Structured serial programming is based on these patterns:
+    \begin{itemize}
+        \item \textbf{Sequence};
+        \item \textbf{Selection};
+        \item \textbf{Iteration};
+        \item \textbf{Recursion}.
+    \end{itemize}
+    \par The nesting pattern can also be used to hierarchically compose these four patterns.
+    \item Parallel Control Patterns:
+    \par Parallel control patterns extend serial control patterns. Each parallel control pattern is related to at least one serial control pattern, but relaxes assumptions of serial control patterns.
+    \begin{itemize}
+        \item \textbf{Fork-Join}: A main task forks off some number of other tasks that then
+continue in parallel to accomplish some portion of the overall
+work. Parent tasks creates new tasks (\textbf{fork}) then waits until all they
+complete (\textbf{join}) before continuing with the computation. More discussed in page \pageref{forkjoin}.
+        \item \textbf{Map}: Performs a function over every element of a collection. Map replicates a serial iteration pattern where:
+        \begin{itemize}
+            \item each iteration is independent of the others;
+            \item the number of iterations is known in advance;
+            \item computation only depends on the iteration count and data from the input collection.
+        \end{itemize}
+            \par The replicated function is referred to as an \enquote{\textbf{elemental function}}
+            \image{map1.png}{0.4}{map1}
+%
+\clearpage
+%
+        \item \textbf{Stencil}: Elemental function accesses a set of \enquote{neighbours}, stencil is a generalization of map. Often combined with iteration – used with iterative solvers or to evolve a system through time. Boundary conditions must be handled carefully in the stencil pattern.
+        \image{stencil1.png}{0.45}{stencil1}
+        % TODO: Maybe adicionar foto disto e do scan, ou nota, está confuso
+        \item \textbf{Reduction}: Combines every element in a collection using an associative \enquote{\textbf{combiner function}}. Because of the associativity of the combiner function, different orderings of the reduction are possible. Examples of combiner functions are addition, multiplication, maximum, minimum, and Boolean AND, OR, and XOR.
+        \item \textbf{Scan}: Computes all partial reductions of a collection. For every output in a collection, a reduction of the input up to that point is computed. If the function being used is associative, the scan can be parallelized. Parallelizing a scan is not obvious at first, because of dependencies to previous iterations in the serial loop. A parallel scan will require more operations than a serial version.
+        \item \textbf{Recurrence}: More complex version of map, where the loop iterations can depend on one another. It is similar to map, but elements can use outputs of adjacent elements as inputs. For a recurrence to be computable, there must be a serial ordering of the recurrence elements so that elements can be computed using previously computed outputs.
+    \end{itemize}
+    \item Serial Data Management Patterns:
+    \par Serial programs can manage data in many ways. Data management deals with how data is
+    allocated, shared, read, written, and copied. Examples of serial Data Management Patterns are random read and write, stack allocation, heap allocation, objects.
+    \item Parallel Data Management Patterns:
+    \par To avoid things like race conditions, it is critically important to know when data is, and when is not, potentially shared by multiple parallel workers. Some parallel data management patterns help us with data locality.
+%
+\clearpage
+%
+    \begin{itemize}
+        \item \textbf{Pipeline Pattern}: Pipeline connects tasks in a producer-consumer manner. A linear pipeline is the basic pattern idea, but a pipeline in a \footnote{Directed Acyclic Graph}{DAG} is also possible. Pipelines are most useful when used with other patterns as they can multiply available parallelism.
+        \image{pipe2.png}{0.35}{pipe2}
+        \item \textbf{Geometric Decomposition}: arranges data into sub-collections. Overlapping and non-overlapping decompositions are possible. This pattern doesn’t necessarily move data, it just gives us another perspective.
+        \item \textbf{Pack}: is used to eliminate unused space in a collection (like a filter). Elements marked {\color{red} false} are discarded, the remaining elements are placed in a contiguous sequence in the same order. Useful when used with map.
+        \par \textbf{Unpack} is the inverse and is used to place elements back in their original locations.
+        \image{pack1.png}{0.4}{pack1}
+        \item \textbf{Gather}: Gather reads a collection of data given a collection of indices. Think of a combination of map and random serial reads. The output collection shares the same type as the input collection, but it shares the same shape as the indices collection.
+        \item \textbf{Scatter}: It's the inverse of gather. A set of input and indices is required, but each element of the input is written to the output at the given index instead of read from the input at the given index. Race conditions can occur when we have two writes to the same location!
+    \end{itemize}
+    \item Other Parallel Patterns:
+    \begin{itemize}
+        \item \textbf{Superscalar Sequences}: Write a sequence of tasks, ordered only by dependencies.
+        \item \textbf{Futures}: Like fork-join, but tasks do not need to be nested hierarchically.
+%
+\clearpage
+%
+        \item \textbf{Speculative Selection}: General version of serial selection where the condition and both outcomes can run in parallel.
+        \item \textbf{Workpile}: General map pattern where each instance of elemental function can generate more instances, adding to the \enquote{pile} of work.
+        \item \textbf{Search}: Finds some data in a collection that meets some criteria.
+        \item \textbf{Segmentation}: Operations on subdivided, non-overlapping, non-uniformly sized partitions of 1D collections.
+        \item \textbf{Expand}: A combination of pack and map.
+        \item \textbf{Category Reduction}: Given a collection of elements each with a label, find all elements with same label and reduce them.
+    \end{itemize}
+\end{itemize}
+%
+% Aula 5
+%
+\subsection{Parallel Performance}
+\subsubsection{Analytical Performance Measures}
+\par{\large\textbf{What is Parallel Perfomance}}
+\par In computing, performance is defined by 2 factors:
+\begin{itemize}
+    \item Computational Requirements (what needs to be done?);
+    \item Computing Resources (how much will it cost?) Efficiency.
+\end{itemize}
+\par Computational problems translate to requirements.
+\par When it comes to parallel processing, it includes techniques and technologies necessary to compute in parallel, like hardware, networks, operating systems, libraries, compilers, etc.
+\par We are concerned with performance issues when using a parallel computing environment. If performance isn't better, then using parallelism is unnecessary.
+\par{\large\textbf{Performance Expectation (Loss)}}
+\par If each processor is rated at \enquote{$f$} \textit{\footnote{Million Floating-Point Operations per Second}{MFLOPS}} and there are \enquote{$p$} processors, should we see \enquote{$f\times p$} \textit{MFLOPS} performance? Several causes affect performance and each must be understood separately.
+\paragraph{Embarrassingly Parallel Computations} An embarrassingly parallel computation is one that can be obviously divided into completely independent parts that can be executed simultaneously. In an embarrassingly parallel computation, there is \textbf{no interaction} between separate processes, except for the (initial) work distribution and (final) results collection and combination.
+\par Embarrassingly parallel computations have potential to achieve maximal speedup on parallel platforms. So if it takes $t$ time sequentially,  there is the potential to achieve $t/p$ time running in parallel with $p$ processors. This not the usual case because of things like parallelization overhead (distributing the work and collecting results), communication costs, imperfect load balancing, resource contention, hardware limitations, and the overheads of starting and ending parallel tasks.
+%
+\clearpage
+%
+\par \textbf{Performance evaluation}:
+\begin{itemize}
+    \item Sequential runtime ($T_{seq}$ or $T_1$) is a function of:
+    \begin{itemize}
+        \item Problem size and architecture;
+    \end{itemize}
+    \item Parallel runtime ($T_{par}$) is a function of:
+    \begin{itemize}
+        \item Problem size and parallel architecture;
+        \item $\#$ processors used in the execution;
+    \end{itemize}
+\end{itemize}
+\par The performance is affected by the algorithm and the architecture.
+\par \textbf{Scalability}: is the ability of a parallel algorithm to achieve performance gains proportional to the number of processors and the size of the problem. A program is deemed scalable if it can scale up to use many processors. This scalability is measured through performance metrics.
+\tbluebox{Performance Metrics and Formulas}{
+\begin{itemize}
+    \item $T_1$ is the execution time on a single processor;
+    \item $T_p$ is the execution time on a \enquote{$p$} processor system;
+    \item $S_p$ is the speedup: \space\space $S(p) = \frac{T_1}{T_p}$;
+    \item $E_p$ is the efficiency: $E(p) = \frac{S_p}{p}$;
+    \item $C_p$ is the cost: \space\space\space\space\space $C(p)=p\times T_p$
+\end{itemize}
+\paragraph{} A parallel algorithm is cost-optimal if:
+\par $\sum$parallel time = sequential time ($E_p = 100\%$ and $C_p = T_1$)
+}
+\subsubsection{Amdahl's Law: Fixed Size Speedup}
+Amdahl's Law provides a way to estimate the maximum possible speedup for a program using parallel processing, based on the portion of the program that can be parallelized. It is interested in solving the problem faster.
+\par Let $f$ be the fraction of a program that is sequential.
+\image{amdahl1.png}{0.4}{amdahl1}
+%
+\clearpage
+%
+\par As we can see, in the figure above, when the number of processors increases, the percentage of work that is serial increases! In P1 it's 16\%, in P2 it's 25\% and in P3 it's 40\%.
+\par So if $f$ is the fraction of work that is serial, $(1-f)$ is the fraction of work that can be parallelized. Also, let $T_1$ and $T_p$ be the execution time in 1 and p processors respectively. We can generalize the previous figure:
+\image{amdahl2.png}{0.5}{amdahl2}
+\par $S_p$ is the \textit{speedup} and is defined as:
+\begin{itemize}
+    \item \[
+    S_p \leq \frac{T_1}{T_p} = \frac{T_1}{f\cdot T_1+\frac{(1-f)\cdot T_1}{p}}
+    \]
+    \item \[S_p \leq \frac{1}{f + \frac{(1-f)}{p}}\]
+    \item \[S_{p\rightarrow \infty} \leq \frac{1}{f}\]
+\end{itemize}
+\image{amdahl3.png}{0.32}{amdahl3}
+%
+\clearpage
+%
+\begin{figure}[h]
+    \centering
+    \par \textbf{Amdahl's Law:}\\
+    \begin{minipage}{0.4\textwidth}
+        \par Maximal Speedup\\
+        \graphics{amdahl4.png}{0.3}
+    \end{minipage}
+    \hfill \vrule \hfill
+    \begin{minipage}{0.4\textwidth}
+        \par Efficiency $\rightarrow S_p/p$\\
+        \graphics{amdahl5.png}{0.3}
+    \end{minipage}
+    \caption{}
+    \label{fig:amdahl5}
+\end{figure}
+\tbluebox{Amdahl's Law Example}{
+\raggedright
+If 90\% of the computation \textbf{can} be parallelized, what is the maximum speedup achievable using 8 processors?
+\par \textbf{Solution:}
+\begin{align*}
+    f &= 10\% = 0.1 \\
+    S(8) &\leq \frac{1}{0.1 + \frac{1-0.1}{8}} \approx 4.7 \\
+    S(6) &\leq 4 \\
+    S(16) &\leq 6.4
+\end{align*}
+\par Again, to reiterate, the parallel system can be at best $4.7$ times faster than the sequential system.
+}
+\par {\large \textbf{Amdahl's law and Scalability}}
+\par So when does Amdahl's Law apply? It applies when the \textbf{problem size is fixed} and in the context of \textbf{Strong scaling} where you aim to reduce the time to solve a fixed-size problem by increasing the number of processors ($p \rightarrow \infty$, $S_p=s_\infty \rightarrow \frac{1}{f}$).
+\par But this means that the \textbf{speedup's upper bound} is determined by the degree of \textbf{sequential execution time} in the computation, not the number of processors. So, a parallel program is only as scalable as the portion of work that can be parallelized. % TODO: Nota isto foi a conclusão a que eu cheguei, o chatgpt concorda mas enfim
+%
+\clearpage
+%
+\subsubsection{Gustafson-Barsis' Law: Scaled Speedup}
+\enquote{... speedup should be measured by scaling the problem to the number of processors, not by fixing the problem size.}{ \small - John Gustafson}
+\par This law is often interested in larger problems when scaling:
+\begin{itemize}
+    \item How big of a problem can be run (\footnote{High Performance Computing Linpack - A benchmark used to test supercomputers}{HPC Linpack});
+    \item Constrain problem size by parallel time: Finding a balance between the scale of the problem and the time it takes to compute the results
+\end{itemize}
+\image{gustatson1.png}{0.45}{gustatson1}
+\par As we can see, instead of the work remaining the exact same but taking less time to execute, in this example the amount of work increases as the number of processors increase, but the fraction of serial work is reduced.
+\par Execution time of a parallel program: $T_1 = a + b$:
+\begin{itemize}
+    \item $a \rightarrow$ part not parallelizable;
+    \item $b \rightarrow$ part parallelizable.
+\end{itemize}
+\par Because we are scaling the problem (data being processed), with $p$ processors we have:
+\begin{center}
+    $T_p = a + p\cdot b$
+\end{center}
+\par The wall clock execution time is always the same, so scaled speedup is calculated on the size of the problem processed (which is proportional to the total/accumulated execution time):
+\begin{center}
+    $S_p \leq T_p/T_1 = (a+p\cdot b)/(a+b)$
+\end{center}
+\par Let $\alpha = a/(a+b)$ be the sequential fraction of the parallel execution time. Then the \textbf{scaled speedup} is
+\begin{center}
+    $S_p \leq \alpha + p\cdot(1-\alpha) = p-\alpha\cdot(p-1)$
+\end{center}
+\par If $\alpha \rightarrow 0$ then $S_p \rightarrow p$
+\tbluebox{Gustafson-Barsis' Law Example}{
+    \raggedright
+    An application execution on 64 processors spends 5\% of the total time on \textbf{non-parallelizable computations}. What is the scaled speedup?
+    \par \textbf{Solution:}
+    \begin{align*}
+        S(64) &\leq p - \alpha \cdot (p-1) \\
+        &\leq 64 - 0.05(64-1) \\
+        &\leq 60.85
+    \end{align*}
+}
+\par So, when does Gustafson's Law apply concerning the scalability and efficiency of parallel systems?
+\par Firstly, it applies when the problem size is able to increase in proportion to the number of processors; this contrasts with Amdahl's Law, which assumes a fixed problem size. Secondly, the speedup function in Gustafson's Law explicitly includes the number of processors, indicating that the potential for speedup is directly linked to how many processors are being used. Lastly, Gustafson's Law is applicable when there is an ability to maintain or even increase parallel efficiency as the problem size scales up with the number of processors. This makes it especially useful in scenarios where large-scale computational problems need to be addressed efficiently as more resources become available. % NOTA: ChatGPT
+\par{\large\textbf{Amdahl vs. Gustafson-Barsis}}\\
+\begin{minipage}[t]{0.5\textwidth}
+    \par {\large \textbf{Amdahl}}
+    \begin{itemize}
+        \item \textbf{Time}: Wall clock time;
+        \item Sequential part tends to dominate computation;
+        \item Upper-bound on scalability;
+    \end{itemize}
+\end{minipage}
+\begin{minipage}[t]{0.5\textwidth}
+    \par {\large \textbf{Gustafson-Barsis}}
+    \begin{itemize}
+        \item \textbf{Time}: CPU Time;
+        \item Sequential part tends to become irrelevant;
+        \item No upper-bound on scalability;
+    \end{itemize}
+\end{minipage}
+\par But can all applications be decomposed simply into a serial part and a parallel part? Most applications are not embarrassing parallel, because they have a complex organization with dependencies between code blocks.
+\subsubsection{Work-Span and Brent's lemma}
+\par {\large \textbf{DAG Model of Computation}}
+\par It consists of thinking of a program as a \textbf{Directed Acyclic Graph} of tasks. A task can't execute until all the inputs to the task are available, and these inputs come from outputs of earlier executing tasks. A DAG shows explicitly the task dependencies.
+\image{dag1.png}{0.25}{dag1}
+\par When using the DAG model we should think of the hardware as workers and consider a greedy scheduler of the DAG task to workers.
+\note{No worker is idle while there are still tasks left to execute.}
+\par {\Large \textbf{Work-Span Model}}
+\bluebox{
+\begin{itemize}
+    \item $T_p$ = Time to run with $p$ workers;
+    \item $T_1$ = Work: Time for serial execution (execution of all tasks by 1 worker). It's the sum of all work;
+    \item $T_\infty$ = Span: Time along the \textbf{critical path}. This critical path is the sequence of task execution (path) through the DAG that takes the longest time to execute. It assumes an infinite number of workers available.
+    \note{I like to think of this path as the \enquote{bottleneck} of the whole DAG.}
+    \item Work Law: $T_p \geq T_1/p$;
+    \item Span Law: $T_p \geq T_\infty$
+\end{itemize}
+}
+\begin{figure}[h]
+    \begin{minipage}[t]{0.45\textwidth}
+        \par {\large \textbf{Serial Composition}}\\
+        \graphics{workspan1.png}{0.25}\\
+        \begin{itemize}
+            \item \textbf{Work}: $T_1(A \cup B) = T_1(A) + T_1(B)$;
+            \item \textbf{Span}: $T_\infty(A \cup B) = T_\infty(A) + T_\infty(B)$
+        \end{itemize}
+    \end{minipage}
+    \hfill \vrule \hfill
+    \begin{minipage}[t]{0.45\textwidth}
+        \par {\large \textbf{Parallel Composition}}\\
+        \graphics{workspan2.png}{0.25}\\
+        \begin{itemize}
+            \item \textbf{Work}: $T_1(A \cup B) = T_1(A) + T_1(B)$;
+            \item \textbf{Span}: $T_\infty(A \cup B) = max(T_\infty(A),T_\infty(B)))$
+        \end{itemize}
+    \end{minipage}
+    \caption{Serial and Parallel Composition}
+    \label{fig:workspan2}
+\end{figure}
+%
+\clearpage
+%
+\tbluebox{Work-Span Example}{
+\raggedright
+The following DAG has 7 tasks. Let each task take \textbf{1 unit of time}.\\
+\begin{center}
+    \graphics{workspan3.png}{0.2}\\
+\end{center}
+\begin{itemize}
+    \item $T_1 = 7$
+\end{itemize}
+\par All tasks have to be executed. Tasks are executed in a serial order.
+\par To know the $T_\infty$, we need to know the time of the \textbf{critical path}, which in this case is: $1 \rightarrow 2 \rightarrow 3 \rightarrow 4 \rightarrow 5$. Since each task takes 1 unit of time:
+\begin{itemize}
+    \item $T_\infty = 5$
+\end{itemize}
+}
+\par {\Large {\textbf{Lower/Upper bound  on greedy scheduling}}}
+\par Suppose we only have $p$ workers, we can write a work-span formula to derive a lower-bound $T_p$: $T_p \geq max(\frac{T_1}{p}, T_\infty)$\\
+\begin{minipage}{0.7\textwidth}
+        \par Brent's Lemma derives an upper bound. It Captures the additional cost executing the other tasks not on the critical path. It also assumes it's possible to do so without overhead.
+    \[T_p \leq \frac{T_1-T_\infty}{p} + T_\infty\]
+    \note{This overhead is the actual computational work of the tasks themselves.}
+\end{minipage}
+\begin{minipage}{0.3\textwidth}
+    \raggedleft
+    \par \graphics{brentlemma1.png}{0.35}
+\end{minipage}
+%
+\clearpage
+%
+\tbluebox{Brent's Lemma Example for 2 Processors}{
+\raggedright
+Let's consider Brent's Lemma for 2 processors, and the following DAG:\\
+\begin{center}
+    \graphics{brentlemma2.png}{0.2}
+\end{center}
+    \par We have:
+\begin{center}
+    \begin{align*}
+            T_1 &= 7 \\
+            T_\infty &= 5 \\
+            T_2 &\leq (T_1 - T_\infty)/P + T_\infty \\
+            &\leq (7-5)/2 + 5 \\
+            &\leq 6
+    \end{align*}
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \graphics{brentlemma3.png}{0.27}
+    \end{minipage}
+    \hfill \vrule \hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \graphics{brentlemma4.png}{0.27}
+    \end{minipage}
+\end{center}
+}
+\par {\large \textbf{Amdahl was an otimist!}}
+\par Assuming $\frac{2}{7}$ sequential fraction ($f$) for Amdahl's Law.
+\image{amdahlotim.png}{0.39}{amdahlotim} %TODO: Melhorar este gráfico
+%
+\clearpage
+%
+\par {\Large \textbf{Estimating Running Time}}
+\par Scalability requires that $T_\infty$ must be denominated by $T_1$
+\begin{align*}
+    T_p &\leq \frac{T_1 - T_\infty}{p} + T_\infty \\
+    T_p &\approx T_1/p+T_\infty \qquad \qquad if \quad T_\infty << T_1
+\end{align*}
+\par Increasing work hurts parallel execution proportionately. The span impacts scalability, even for finite $p$.
+\par {\Large \textbf{Parallel Slack}}
+\par Sufficient parallelism implies linear speedup
+\begin{align*}
+    T_p \approx T_1 /p \qquad \qquad &if \quad T_1/T_\infty >> p \\
+    \text{\textbf{Linear Speedup}} \quad \qquad & \quad \text{\textbf{Parallel Slack}}
+\end{align*}
+\begin{itemize}
+    \item \textbf{Linear Speedup} refers to a scenario in parallel computing where the speedup achieved by using $p$ processors is exactly $p$. This means if you use twice as many processors, the task completes twice as fast, which is the ideal and most efficient outcome in parallel processing.
+    \item \textbf{Parallel Slack} refers to the amount of excess parallelism in a system that allows for maintaining efficiency as the number of processors increases. In other words, if a task has a high degree of parallel slack, it means that there are sufficient independent tasks that can be executed in parallel to effectively utilize additional processors. % ChatGPT
+\end{itemize}
+% ! CODE:
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black, title= OpenMP $fib()$ implementation]
+    \begin{lstlisting}[label={lst:fibimpl1}, language=C, morekeywords={pragma, omp, task, shared, taskwait}]int fib(int n) {
+    if (n < 2)
+        return n;
+    else {
+        int x, y;
+        #pragma omp task shared(x) // Launch task and share variable between spawner and task
+        x = fib(n-1);
+        #pragma omp task shared(y)
+        y = fib(n-2);
+        #pragma omp taskwait // Wait for tasks
+        return x+y;
+    }
+}
+    \end{lstlisting}
+\end{tcolorbox}
+%
+\clearpage
+%
+\tbluebox{Example}{
+    \graphics{fibimpl1.png}{0.4}
+    \graphics{fibimpl2.png}{0.35}
+    \par Assume for simplicity that each strand in $fib(4)$ takes 1 unit time to execute.
+    \begin{align*}
+        \text{Work: }& \qquad T_1 = 17 \\
+        \text{Span: }& \qquad T_\infty = 8 \\
+        \text{Parallelism: }& T_1/T_\infty = 2.125
+    \end{align*}
+    \par Using many more than 2 processors can yield only marginal performance gains.
+}
+%
+\clearpage
+%
+% ! CODE:
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black, title= Quicksort Analysis]
+    \begin{lstlisting}[label={lst:quicksort1}, language=C, morekeywords={pragma, omp, task, shared, firstprivate, low, high, taskwait}]
+void qsort(void *a, size_t low, size_t high,
+            int (*compar)(const void *, const void *)) {
+    int p = partition(a, low, high, compar);
+    #pragma omp task shared(a) firstprivate(low,p)
+    { qsort(a, low, p-1, compar; }
+    // Variables are private and initialized with the value that they had before the spawning of the task
+    #pragma omp task shared(a) firstprivate(high,p)
+    { qsort(a, p, high, compar); }
+    #pragma omp taskwait
+}\end{lstlisting}
+\end{tcolorbox}
+\par
+% ! Time Complexity
+\timecomplexeng{Quicksort}{
+\[
+T_1(n)=
+\begin{cases}
+    \Theta(1), \qquad \qquad \qquad if \quad n=1 \\
+    2T_1(\frac{n}{2}) + \Theta(n), \qquad  otherwise
+\end{cases}
+\]
+\par For the work, we have $\Theta(n\cdot log(n))$:
+\begin{itemize}
+    \item Partition in $\Theta(1)$ time;
+    \item 2 recursive sorts of $\frac{n}{2}$ array;
+    \item Merge array sequentially $\Theta(n)$
+\end{itemize}
+\[
+T_\infty(n)=
+\begin{cases}
+    \Theta(1), \qquad \qquad \qquad if \quad n=1 \\
+    2T_\infty(\frac{n}{2}) + \Theta(n), \qquad  otherwise
+\end{cases}
+\]
+\par For the span, the time complexity becomes $\Theta(n)$ due to all levels of the recursive calls being able to execute in parallel.
+\begin{itemize}
+    \item Span for partition: $\Theta(1)$;
+    \item Span for recursive sort of $\frac{n}{2}$ array;
+    \item Span for merging two arrays sequentially : $\Theta(n)$
+\end{itemize}
+\[
+\begin{cases}
+    \text{Expected Work = } \Theta(n\cdot log(n))\\
+    \text{Expected Span = } \Theta(n)
+\end{cases}
+\]
+\par And so with parallelism we have $\Theta(log(n))$
+}
+\note{
+\centering
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Algorithm}    & \multicolumn{1}{l|}{\textbf{Work}} & \multicolumn{1}{l|}{\textbf{Span}} & \multicolumn{1}{l|}{\textbf{Parallelism}} \\ \hline
+Quick sort            & $\Theta(n\cdot log(n))$            & $\Theta(n)$                        & $\Theta(log(n))$                          \\ \hline
+Merge sort            & $\Theta(n\cdot log(n))$            & $\Theta(log^3 n)$                  & $\Theta(\frac{n}{log^2 n})$               \\ \hline
+Matrix multiplication & $\Theta(n^3)$                      & $\Theta(log n)$                    & $\Theta(\frac{n^3}{log n})$               \\ \hline
+Strassen              & $\Theta(n^{lg7})$                  & $\Theta(log^2n)$                   & $\Theta(\frac{n^{lg7}}{log^2n})$          \\ \hline
+LU-decomposition      & $\Theta(n^3)$                      & $\Theta(n\cdot log(n))$            & $\Theta(\frac{n^2}{log(n)})$              \\ \hline
+Tableau construction  & $\Theta(n^2)$                      & $\Theta(n^{log3})$                 & $\Theta(n^{2-log 3})$                     \\ \hline
+FFT                   & $\Theta(n log(n))$                 & $\Theta(log^2(n))$                 & $\Theta(\frac{n}{log(n)})$                \\ \hline
+\end{tabular}
+}
+%
+% Aula 6
+%
+\clearpage
+%
+\section{Synchronization}
+\subsection{Lock-Based Synchronization Strategies}
+\paragraph{Syncronization} When it comes to synchronization of current execution flows, we may broadly identify two necessities:
+\begin{itemize}
+    \item Mutual exclusion in the accesses to shared memory;
+    \item Predictable thread execution ordering.
+\end{itemize}
+\par {\large \textbf{Synchronization Primitives}} \paragraph{}
+\begin{minipage}[t]{0.45\textwidth}
+    \par Primitives for ensuring mutual exclusion:
+    \begin{itemize}
+        \item Locks and Semaphores;
+        \item Atomic Primitives (e.g. atomic\_add);
+        \item Transactions.
+    \end{itemize}
+\end{minipage}
+\hfill \vrule \hfill
+\begin{minipage}[t]{0.45\textwidth}
+    \par Primitives for ensuring event signaling:
+    \begin{itemize}
+        \item Barriers;
+        \item Condition Variables;
+        \item Promises/futures.
+        \item Semaphores.
+    \end{itemize}
+\end{minipage}
+\par
+\par {\large \textbf{Mutual Exclusion Lock-Based Synchronization}}
+\begin{enumerate}[label=\textbf{Step \arabic* -}]
+    \item \textbf{Acquire Method}: Involves a thread's endevor to attain access to enter a critical section or access a shared resource.
+    \item \textbf{Waiting Algorithm}: The thread waits approval to access the shared resource. It delineates the method by which a thread patiently waits for its turn to utilize the resource, employing various strategies to minimize contention and optimize resource utilizaiton.
+    \item \textbf{Release Method}: The thread facilitates other threads' access to the resource once its tasks within the synchronized region are completed. It describes how a thread relinquishes control of the resource, ensuring that it transitions to a consistent state and becomes available for use by other threads.\paragraph{}
+\end{enumerate}
+    \par \textbf{Busy waiting}
+    \par Consists on waiting until the resource is available: while(condition $X$ not true)\{\}
+    \par \textbf{Blocking Synchronization}
+    \par If progress cannot be made because a resource cannot be acquired, it is desirable to free up execution resources for another thread (preempt the running thread):
+    \par if(Condition $X$ not true)
+    \par \quad block until true;
+    \note{This blocking is not the same as just using busy waiting, as it is handled by a separate event system.}
+    \par So when comparing busy waiting to blocking synchronization, busy waiting is worse because it's using one processor that could be doing something else and it's just there waiting. But is busy waiting always bad? No, for instance, it is preferable when the scheduling overhead is larger than the expected wait.
+    %
+\clearpage
+    %
+    \subsubsection{Types of Locks}
+    \begin{itemize}
+        \item \par {\Large \textbf{Exclusive Locks}}
+        \par It's basically a binary lock, only knowing if it's free or locked. It also doesn't know who has the lock. This can lead to \textbf{deadlocks}, if an execution flow acquires a lock and then tries to acquire the lock again, it will become deadlocked because it will be waiting for the lock infinitely.
+        \item \par {\Large \textbf{Reentrant (or Recursive) Exclusive Locks}}
+        \par Similar to the last example, as it also is a binary lock, knowing if it's locked or if it's free, but contrary to the exclusive locks, it also knows who has the lock allowing an execution flow to acquire a lock it already owns. It also must know how many times an execution flow has acquired a lock without releasing it.
+        \item \par {\Large \textbf{Readers-Writers Lock}}
+        \par Also known as a Shared-exclusive Lock. It has two modes:
+        \begin{itemize}
+            \item Read (Shared);
+            \item Write (Exclusive);
+        \end{itemize}
+        \par It allows for multiple execution flows to acquire the lock in read mode simultaneously.
+        \note{
+        Suppose that a shared lock is in place and a write is in queue. What happens if another thread requests a read while the write is still in queue? If the lock is fair it will give priority to the write.
+        }
+    \end{itemize}
+   \subsubsection{Lock-Based Synchronization Strategies}
+   \par For this section, we will assume a case study, which is of execution flows accessing a data structure, specifically a \footnote{Basically a Set implemented using a Linked List}{Linked-List-Based Set implementation}. This example is good because it is a common application and is a building block for other apps.
+   % ! CODE:
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black, title= Set Interface]
+    \begin{lstlisting}[label={lst:setinterface}, language=Java, morekeywords={T}]
+public interface Set<T> {
+    public boolean add(T x);      // Add item to set
+    public boolean remove(T x);   // Remove item from set
+    public boolean contains(T x); // Is item in set?
+}\end{lstlisting}
+\end{tcolorbox}
+\imagec{listbasedset1.png}{0.2}{The List-Based Set}{listbasedset1}
+%
+\clearpage
+%
+\par Before heading to the strategies themselves, here is a representation of the sequential List-based Set:
+\imagec{seqset1.png}{0.3}{Sequential List-Based Set}{seqset1}
+\begin{itemize}
+    \item {\large \textbf{Coarse-Grained Synchronization}}
+    \par Uses a \textbf{single lock} and the methods are always executed in \textbf{mutual exclusion}. Although, it eliminates all concurrency within the object, so while a process is using the data structure others will have to wait, possibly leading to bottlenecking.
+    \imagec{coarsesync.png}{0.35}{Simple but Hotspot + Bottleneck}{coarsesync1}
+    \item {\large \textbf{Fine-Grained Synchronization}}
+    \par Instead of using a single lock, the object is split into multiple independently-synchronized components, each piece having it's own lock, and methods only conflict when they access the same component at the same time.
+    \imagec{finesync1.png}{0.32}{Hand-Over-Hand Locking}{finesync1}
+%
+\clearpage
+%
+    \par Why do we need 2 locks just to remove $b$? Lets suppose an execution flow $\alpha$ issued \enquote{remove($b$)} and another $\beta$ issued \enquote{remove($c$)}. $\alpha$ would lock the node $a$ and $\beta$ would lock the node $b$. After the removal we would have $a\rightarrow c$ and $b \rightarrow d$, so $c$ wasn't removed:
+    \image{finesync2.png}{0.3}{finesync2}
+    \note{The code for the method remove can be found in the Appendix in subsection \ref{appendix:finesync1}}
+    \par A {\color{red}con} of this approach is the fact that there are lots and lots of acquires and releases of locks.
+    \item {\large \textbf{Optimistic Synchronization}}
+    \par Allows for searching without acquiring a lock. For example, to remove a value from the set, it's possible to search if the element is present without locking, if the element exists, lock the predecessor and current nodes and then check again (validation) if the element is present. After this, it acts upon the status of that last check:
+    \begin{itemize}
+        \item Failure: Start over again (optionally with another locking strategy);
+        \item Success: execute the operation (locks were already acquired).
+    \end{itemize}
+    \note{The code for the method add can be found in the Appendix in subsection
+    \ref{appendix:optisync1}}
+    \par Why is the validation needed? Again, lets suppose an execution flow $\alpha$ issues a \enquote{remove($c$)} and another $\beta$ \enquote{remove($b$)}. The first traversing of the list by $\alpha$ would show that both $b$ and $c$ are there. But then $b$ would be removed by $\beta$ and so $\alpha$ would lock $b$ (now removed) and $c$ and make $b\rightarrow d$ and remove the $next$ of $c$, and we would have:\\
+    \begin{minipage}{0.5\textwidth}
+        \centering
+        \graphics{optisync1.png}{0.25}
+    \end{minipage}
+    \begin{minipage}{0.5\textwidth}
+        \centering
+        \graphics{optisync2.png}{0.27}
+    \end{minipage}
+    %
+    \clearpage
+    %
+    \par For some final considerations on this strategy, it has the benefits of having to re-check after locking and being usually cheaper than hand-over-hand locking. Although, mistakes are expensive (safety easily compromised) and it isn't starvation free (Although we expect to be good in practice as starvation is rare).
+    \par {\large \textbf{Optimistic Concurrency List}}
+    \begin{itemize}
+        \item Works best if the cost of traversing the list twice without locking is significantly less than the cost of traversing the list once with locking;
+        \item One drawback of this Optimistic Concurrency List algorithm is that $contains()$ needs to acquire locks, which is unattractive since $contains()$ calls are likely to be much more common than calls to other methods.
+    \end{itemize}
+    \item {\large \textbf{Lazy Synchronization}}
+    \par {\large \textbf{Lazy Concurrency List}}
+    \par Consists on redefining the Optimistic Concurrency List algorithm so that calls to $contains()$ don't have to wait. The $add()$ and $remove()$ methods, while still blocking, traverse the list only once (in the absence of contention)
+    \par {\large How to implement the Lazy Concurrency List:}
+    \begin{itemize}
+        \item We add to each node a Boolean marked field indicating whether that (physical) node is (logically) in the set. And so a node can be logically removed, and physically removed at a different instant.
+        \begin{itemize}
+            \item This way there is no need to validate that the node is reachable by re-traversing the whole list. Instead, the algorithm maintains the invariant that every unmarked node is reachable. If a traversing thread does not find a node, or finds it marked, then that item is not in the set
+        \end{itemize}
+        \item As a result, $contains()$ needs only one wait-free traversal;
+        \item To add an element to the list, $add()$ traverses the list, locks the target and its predecessor, and inserts the node;
+        \item The $remove()$ method is lazy, taking two steps: first, mark the target node, logically removing it, and second, redirect its predecessor’s next field, physically removing it;
+    \end{itemize}
+    \par All methods traverse the list (possibly traversing logically and physically removed nodes) ignoring the locks. The $add()$ and $remove()$ methods lock the $pred_A$ and $curr_A$ nodes as before, but validation does not re-traverse the entire list to determine whether a node is in the set. Instead, because a node must be marked before being physically removed, validation need only check that $curr_A $ has not been marked. However, for insertion and deletion, since $pred_A$ is the one being modified, one must also check that $pred_A$ itself is not marked, and that it points to $curr_A$.
+    \note{Logical removals require a small change to the abstraction map: an item is in the set if and only if it is referred to by an unmarked reachable node.}
+    % ! CODE:
+    \begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black, title= Validate Method]
+        \begin{lstlisting}[label={lst:lazycode1}, language=Java, morekeywords={}]
+private boolean validate(Node pred, Node curr) {
+    return !pred.marked && !curr.marked
+            && pred.next == curr;
+}\end{lstlisting}
+    \end{tcolorbox}
+    \par Why validation is still necessary? The Thread A is attempting to remove node a. After it reaches the point where $pred_A$ refers to $curr_A$, and before it
+    acquires locks on these nodes, the node $pred_A$ is logically and physically removed. After A acquires the locks, head tail validation will detect the problem and A’s call to $remove()$ will be restarted.
+\end{itemize}
+\begin{figure}[h]
+    \begin{minipage}{0.5\textwidth}
+        \centering
+        \graphics{lazysync1.png}{0.4}
+    \end{minipage}
+    \begin{minipage}{0.5\textwidth}
+        \centering
+        \graphics{lazysync2.png}{0.4}
+    \end{minipage}
+    \caption{Why is validation still necessary}
+    \label{fig:lazysync1}
+\end{figure}
+\paragraph{Lazy Synchronization:} Based on postponing hard work.
+\par For some considerations, it has the benefit of re-checking after locking being simpler and is usually cheaper than hand-over-hand locking. Although mistakes are expensive since the safety is easily compromised and it isn't starvation free on $add$ and $remove$, being only starvation free on $contains$.

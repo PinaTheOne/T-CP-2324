@@ -1,0 +1,304 @@
+% ! Start Of Chapter:
+\renewcommand{\image}[3]{\globimage{#1}{1}{#2}{#3}}
+\renewcommand{\imagec}[4]{\globimagec{#1}{1}{#2}{#3}{#4}}
+\renewcommand{\graphics}[2]{\includegraphics[scale=#2]{Images/appendix/#1}}
+\par {\Huge \textbf{Appendix}}
+\section{Lectures' Bulk Code}
+\subsection{Synchronization Code}
+\subsubsection{Fine-Grained Synchronization}\label{appendix:finesync1}
+% ! CODE:
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black, title= Remove Method]
+    \begin{lstlisting}[label={lst:finesync1}, language=Java, morekeywords={}]
+public boolean remove(Item item) { int key = item.hashCode();
+    Node pred, curr;
+    try {
+        pred = this.head;
+        pred.lock();
+        curr = pred.next;
+        curr.lock();
+        // Travesing the list:
+        while (curr.key <= key) { // Search key range
+            if (item == curr.item) { 
+                // If the item is found remove node
+                pred.next = curr.next;
+                return true;
+            }
+            // Unlock the predecessor. Only 1 node is locked
+            pred.unlock();
+            pred = curr;    // Demote current
+            curr = curr.next;
+            curr.lock();    // Find and lock the new current
+        }
+        return false; // Element not present
+    } finally { // Makes sure the locks are released
+        curr.unlock();
+        pred.unlock();
+    }
+}\end{lstlisting}
+\end{tcolorbox}
+%
+\clearpage
+%
+\label{appendix:optisync1}
+% ! CODE:
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black, title= Add Method]
+    \begin{lstlisting}[label={lst:optionsync1}, language=Java, morekeywords={$PLACE KEYWORDS HERE$}]
+public boolean add(T item) {
+    int key = item.hashCode();
+    while (true) {
+        // Initialize pointers to traverse the list
+        Node pred = head;
+        Node curr = pred.next;
+        while (curr.key <= key) {
+            // Lock the nodes
+            pred = curr;
+            curr = curr.next;
+        }
+        pred.lock();
+        curr.lock();
+        // Try the operation and either succeed or fail
+        try {
+            // If the locked nodes are still accessible,
+            // that means they are still in the list
+            if (validate(pred, curr)){
+                if (curr.key == key) {
+                    // If item already in list, fail
+                    return false;
+                } else {
+                    // If item not present, create new node insert 
+                    // into the list, and succeed
+                    Node node = new Node(item);
+                    node.next = curr;
+                    pred.next = node;
+                    return true;
+                }
+            }
+        // Always unlock (with both success and failure)
+        } finally {
+            pred.unlock();
+            curr.unlock();
+        }
+    }
+}\end{lstlisting}
+\end{tcolorbox}
+%
+\clearpage
+%
+\subsubsection{Lock-Free Synchronization}\label{appendix:lockfree}
+% ! CODE:
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black, title= The Window Inner Class]
+    \begin{lstlisting}[label={lst:lockfree1}, language=Java, morekeywords={Window, Node}]
+class Window {
+    // A container for pred and current values
+    public Node pred;
+    public Node curr;
+    Window(Node pred, Node curr) {
+        this.pred = pred; this.curr = curr;
+    }
+}\end{lstlisting}
+\end{tcolorbox}
+%
+% ! CODE:
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black, title= The find method]
+    \begin{lstlisting}[label={lst:lockfree2}, language=Java, morekeywords={Window, Node}]
+// Find returns window:
+// pred: node with the largest key < "key"
+// curr: node with the least key >= "key"
+Window window = find(head, key);
+// Extract pred and curr
+Node pred = window.pred;
+Node curr = window.curr;\end{lstlisting}
+\end{tcolorbox}
+%
+% ! CODE:
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black, title= Remove(Lock-Free)]
+    \begin{lstlisting}[label={lst:lockfree3}, language=Java, morekeywords={Window, Node, T}]
+public boolean remove(T item) {
+    boolean snip;
+    int key = item.hashCode();
+    while (true) { // Keep Trying
+        Window window = find(head, key);    // Find Neighbours
+        Node pred = window.pred, curr = window.curr;
+        if (curr.key != key) { // It's not there
+            return false;
+        } else {
+            Node succ = curr.next.getReference();
+            snip = curr.next.attemptMark(succ, true); // Try to mark node as deleted
+            // If it doesn't work, just retry. If it does the job, is essentially done.
+            if (!snip) continue;
+            // Try to advance reference
+            // (if we don't succeed, someone else did or will do).
+            pred.next.compareAndSet(curr, succ, false, false);
+            return(true);
+        }
+    }
+}\end{lstlisting}
+\end{tcolorbox}
+%
+\clearpage
+%
+% ! CODE:
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black, title= Add(Lock-Free)]
+    \begin{lstlisting}[label={lst:lockfree4}, language=Java, morekeywords={Window, Node, T}]
+public boolean add(T item) {
+    int key = item.hashCode();
+    while (true) {
+        Window window = find(head, key);
+        Node pred = window.pred, curr = window.curr;
+        if (curr.key == key) { // Item already there.
+            return false;
+        } else {
+            // Create new node
+            Node node = new Node(item);
+            node.next = new AtomicMarkableRef(curr, false);
+            // Install new node, else retry loop
+            if (pred.next.compareAndSet(curr, node, false, false)){
+                return true;
+            }
+        }
+    }
+}\end{lstlisting}
+\end{tcolorbox}
+% ! CODE:
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black, title= Contains(Wait-Free)]
+    \begin{lstlisting}[label={lst:lockfree5}, language=Java, morekeywords={Window, Node, T}]
+public boolean contains(T item) {
+    boolean[] marked;
+    int key = item.hashCode();
+    Node curr = this.head;
+    while (curr.key < key)
+        curr = curr.next.getReference();
+    // Only diff is that we get and check marked
+    Node succ = curr.next.get(marked);
+    return (curr.key == key && !marked[0])
+}\end{lstlisting}
+\end{tcolorbox}
+%
+\clearpage
+%
+% ! CODE:
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black, title= Contains(Wait-Free)]
+    \begin{lstlisting}[label={lst:lockfree6}, language=Java, morekeywords={Window, Node, T}]
+public Window find(Node head, int key) {
+    Node pred = null, curr = null, succ = null;
+    boolean[] marked = {false}; boolean snip;
+    // If list changes while traversed, start over Lock-Free
+    // because we start over only if someone else makes
+    retry: while (true) {
+        // Start looking from head
+        pred = head;
+        curr = pred.next.getReference();
+        while (true) { // Move down the list
+            succ = curr.next.get(marked); //Get ref to successor and current deleted bit
+            // Try to remove deleted nodes in path.
+            while (marked[0]) {
+                // Try to snip out node
+                snip = pred.next.compareAndSet(curr,
+                                succ, false, false);
+                if (!snip) continue retry; // if predecessor's next field changed must retry whole
+                // Otherwise move on to check if next node deleted
+                curr = succ;
+                succ = curr.next.get(marked);
+            }
+            // If curr key is greater or equal, return pred and curr
+            if (curr.key >= key)
+                return new Window(pred, curr);
+            // Otherwise advance window and loop again
+            pred = curr;
+            curr = succ;
+        }
+    }
+}\end{lstlisting}
+\end{tcolorbox}
+%
+\clearpage
+%
+\section{Cheat Sheets}
+\subsection{OpenMP Cheat Sheet}
+\begin{description}
+    \item[\texttt{\#pragma omp parallel for collapse(n)}] \hfill \\
+        Collapses nested loops into a single loop to be parallelized, where \texttt{n} specifies the number of nested loops.
+    
+    \item[\texttt{\#pragma omp parallel for schedule(static, chunk\_size)}] \hfill \\
+        Divides the loop iterations into chunks of size \texttt{chunk\_size} and assigns each chunk to a thread in a round-robin fashion. If \texttt{chunk\_size} is not specified, the iterations are divided into chunks that are as evenly sized as possible. Best for loops where each iteration takes roughly the same amount of time to execute.
+    
+    \item[\texttt{\#pragma omp parallel for schedule(dynamic, chunk\_size)}] \hfill \\
+        Initially assigns chunks of size \texttt{chunk\_size} to threads. When a thread finishes its chunk, it is dynamically assigned a new chunk until no chunks remain. If \texttt{chunk\_size} is not specified, it defaults to 1. Suitable for loops with iterations that have varying execution times. It helps in load balancing by assigning work to threads that finish their tasks early.
+    
+    \item[\texttt{\#pragma omp parallel for schedule(guided, chunk\_size)}] \hfill \\
+        Similar to dynamic scheduling, but the size of the chunks decreases over time. The size of the next chunk is proportional to the number of unassigned iterations divided by the number of threads, but it will not be smaller than \texttt{chunk\_size}. If \texttt{chunk\_size} is not specified, it defaults to a small chunk size determined by the implementation. Useful for loops where later iterations are quicker to execute or when you want to balance the load dynamically with larger initial chunks.
+    
+    \item[\texttt{\#pragma omp parallel for schedule(auto)}] \hfill \\
+        The decision about scheduling is delegated to the compiler and/or runtime system. It chooses the scheduling based on the loop and system characteristics. When you prefer the compiler/runtime to make scheduling decisions, potentially using insights you may not have.
+    
+    \item[\texttt{\#pragma omp parallel for schedule(runtime)}] \hfill \\
+        The scheduling policy and chunk size are determined by the OMP\_SCHEDULE environment variable, which can be set to any of the above scheduling strategies and a chunk size. Offers flexibility to experiment with different scheduling strategies without recompiling. Suitable for fine-tuning performance based on the execution environment.
+    
+    \item[\texttt{\#pragma omp parallel}] \hfill \\
+        This directive is used to fork additional threads to carry out the work enclosed in the block in parallel. It creates a parallel region wherein each thread executes the code inside the block independently. This directive is fundamental in OpenMP for initiating parallelism. It's typically the first directive you use when parallelizing a serial program.
+    
+    \item[\texttt{\#pragma omp single}] \hfill \\
+        This directive specifies that the enclosed code block should be executed by only one thread (the first one that reaches the directive). Other threads will skip the block and wait at an implicit barrier at the end of the single region unless a \texttt{nowait} clause is specified. Useful for tasks that should only be done once and do not need to be repeated by each thread, like initialization tasks or I/O operations that are not thread-safe.
+    %
+\clearpage
+    %
+    \item[\texttt{\#pragma omp task}] \hfill \\
+        This directive creates a task that can be executed asynchronously with respect to the thread that creates it. The task is queued for execution as per the availability of the threads in the team. This is key in defining fine-grained parallelism, particularly for irregular or recursive algorithms where workloads are dynamic and not evenly distributed.
+    
+    \item[\texttt{\#pragma omp taskwait}] \hfill \\
+        This directive creates a wait point where a thread will not proceed until all tasks created by this thread in the task region are complete. Ensures that all tasks that were generated before this directive are completed before proceeding, which is crucial for synchronizing tasks, for example, when subsequent computation depends on the results of these tasks.
+    
+    \item[\texttt{\#pragma omp parallel for reduction((operation: variable\_list))}] \hfill \\
+        The reduction clause ensures that each thread has a private copy of the variables specified in \texttt{variable\_list}, performs the specified operation on each private copy during the loop, and then combines all the private copies into a single global value using the same operation after the loop finishes. `operation`: This is a predefined reduction operator such as `+', `*', `max', `min', `\&', `\textbar', `\&\&', `\textbar\textbar', etc. Very useful in loop parallelism where the loop iterations are independent but result in an update to the same output variables, typical in scenarios like accumulating sums or computing mathematical vectors.
+    
+    \item[Example:] \hfill \\
+        \begin{verbatim}
+            #pragma omp parallel for reduction(+:sum)
+            for (int i = 0; i < SIZE; i++) {
+                sum += array[i];
+            }
+        \end{verbatim}
+    
+    \item[\texttt{\#pragma omp simd}] \hfill \\
+        This directive indicates that the loop should be vectorized using SIMD (Single Instruction, Multiple Data) instructions if possible. This can significantly speed up the loop execution by utilizing the vector processing capabilities of modern CPUs. Enhances performance by allowing multiple iterations of the loop to be executed simultaneously using SIMD instructions. It is beneficial for loops with operations that can be vectorized, such as basic arithmetic or logical operations on arrays.
+\end{description}
+\subsection{Atomic Programming} \label{appendix:atomic1}
+\subsubsection{At Programming Language Level – C++}
+\begin{table}[h]
+\centering
+\begin{tabular}{|c|c|}
+\hline
+\textbf{atomic}                       & \begin{tabular}[c]{@{}c@{}}Atomic class template and specializations for bool, integral,\\ floating-point, (since C++20)  and pointer types (class template)\end{tabular} \\ \hline
+\textbf{atomic\_ref}                  & Provides atomic operations on non-atomic objects (class template)                                                                                                         \\ \hline
+\textbf{atomic\_flag}                 & The lock-free boolean atomic type (class)                                                                                                                                 \\ \hline
+\textbf{atomic\_signed\_lock\_free}   & \begin{tabular}[c]{@{}c@{}}A signed integral atomic type that is lock-free and for\\ which waiting/notifying is most efficient (typedef)\end{tabular}                     \\ \hline
+\textbf{atomic\_unsigned\_lock\_free} & \begin{tabular}[c]{@{}c@{}}An unsigned integral atomic type that is lock-free and\\ for which waiting/notifying is most efficient (typedef)\end{tabular}                  \\ \hline
+\end{tabular}
+\end{table}
+%
+\clearpage
+%
+\subsubsection{At Programming Language Level – Java}
+\begin{table}[h]
+\centering
+\begin{tabular}{|p{5.7cm}|p{10cm}|}
+\hline
+\textbf{Class} & \textbf{Description} \\ \hline
+AtomicBoolean & A boolean value that may be updated atomically. \\ \hline
+AtomicInteger & An int value that may be updated atomically. \\ \hline
+AtomicIntegerArray & An int array in which elements may be updated atomically. \\ \hline
+AtomicIntegerFieldUpdater$<$T$>$ & A reflection-based utility that enables atomic updates to designated volatile int fields of designated classes. \\ \hline
+AtomicLong & A long value that may be updated atomically. \\ \hline
+AtomicLongArray & A long array in which elements may be updated atomically. \\ \hline
+AtomicLongFieldUpdater$<$T$>$ & A reflection-based utility that enables atomic updates to designated volatile long fields of designated classes. \\ \hline
+AtomicMarkableReference$<$V$>$ & An AtomicMarkableReference maintains an object reference along with a mark bit, that can be updated atomically. \\ \hline
+AtomicReference$<$V$>$ & An object reference that may be updated atomically. \\ \hline
+AtomicReferenceArray$<$E$>$ & An array of object references in which elements may be updated atomically. \\ \hline
+AtomicReferenceFieldUpdater$<$T,V$>$ & A reflection-based utility that enables atomic updates to designated volatile reference fields of designated classes. \\ \hline
+AtomicStampedReference$<$V$>$ & An AtomicStampedReference maintains an object reference along with an integer "stamp", that can be updated atomically. \\ \hline
+DoubleAccumulator & One or more variables that together maintain a running double value updated using a supplied function. \\ \hline
+DoubleAdder & One or more variables that together maintain an initially zero double sum. \\ \hline
+LongAccumulator & One or more variables that together maintain a running long value updated using a supplied function. \\ \hline
+LongAdder & One or more variables that together maintain an initially zero long sum. \\ \hline
+\end{tabular}
+\end{table}

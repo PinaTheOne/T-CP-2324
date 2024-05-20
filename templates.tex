@@ -1,0 +1,25 @@
+% ! Start Of Chapter:
+\newcommand{\image}[3]{\globimage{#1}{8}{#2}{#3}}
+\newcommand{\imagec}[4]{\globimagec{#1}{8}{#2}{#3}{#4}}
+\newcommand{\graphics}[2]{\includegraphics[scale=#2]{Images/Chapter 8/#1}}
+
+% ! CODE:
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black, title= $PLACE TITLE HERE$]
+    \begin{lstlisting}[label={lst:$LABEL GOES HERE$}, language=Java, morekeywords={$PLACE KEYWORDS HERE$}]
+        $PLACE CODE HERE$
+    \end{lstlisting}
+\end{tcolorbox}
+
+% ! Time Complexity
+\timecomplex{$ TITLE GOES HERE $}{$ IMPLEMENTATION GOES HERE $}{
+\begin{minipage}{0.5\textwidth}
+    \begin{itemize}
+        \item $ ITEM GOES HERE $
+    \end{itemize}
+\end{minipage}
+\begin{minipage}{0.5\textwidth}
+    \begin{itemize}
+        \item[] $ VALUE GOES HERE $
+    \end{itemize}
+\end{minipage}
+}

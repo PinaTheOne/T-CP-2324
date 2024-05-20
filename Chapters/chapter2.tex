@@ -1,0 +1,662 @@
+% ! Start Of Chapter:
+\renewcommand{\image}[3]{\globimage{#1}{2}{#2}{#3}}
+\renewcommand{\imagec}[4]{\globimagec{#1}{2}{#2}{#3}{#4}}
+\renewcommand{\graphics}[2]{\includegraphics[scale=#2]{Images/Chapter 2/#1}}
+\subsection{Synchronizaiton - Competition and Cooperation}
+\par \textbf{Data races}: Occurs when two or more threads access a shared variable concurrently, and at least one of the accesses is a write.
+\par \textbf{Ordering violations}: Ordering violations occur when the expected sequence of operations is disrupted due to concurrent execution. This can happen when operations that need to happen in a specific order (to ensure correctness) are executed out of order due to the parallel execution of threads or processes.
+\par Synchronization is required when the progress of one or several threads depends on the behavior of other threads.
+\par Two types of interaction require synchronization:
+\begin{itemize}
+    \item \textbf{Cooperation}: Occurs when one thread can only progress after some event on another thread. This is the source of ordering violations.
+    \item \textbf{Competition}: Occurs when threads compete to execute some statements (that access some shared resource) and only one thread at a time (or a bounded number of them) is allowed to execute them. This is the source of data races.
+\end{itemize}
+\subsubsection{Cooperation}
+\par {\large \textbf{Synchronization Mechanisms}}
+\begin{itemize}
+    \item \textbf{Barrier (or rendezvous)}: A set of control points, one per thread involved in the barrier, such that each thread is allowed to pass its control point only when all other threads have attained their own control points. From an operational point of view, each thread must stop until all other threads have arrived at their control point.
+    \item \textbf{Condition variables}:
+    \begin{itemize}
+        \item Waiting for a condition to be true;
+        \item Bound to a lock;
+        \item Used to implement monitors;
+    \end{itemize}
+    \item \textbf{Futures}: Waiting for one-off events;
+\end{itemize}
+\subsubsection{Competition}
+\par {\large \textbf{Critical Sections}}
+\par The classical definition is critical section is \enquote{A piece of code that accesses a shared resource that must not be concurrently accessed by more than one thread of execution.}
+\par \textbf{However}, this definition can be misleading. It suggests that the code segment itself is the issue, when the core issue lies with
+the shared resource being accessed.
+%
+\clearpage
+%
+\subsection{Atomicity}
+\begin{figure}[h]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \par Race conditions lead to errors when sections of code are interleaved\\
+        \centering
+        \graphics{atomicity1.png}{0.22}
+        \caption{Interleaved Execution}
+    \end{minipage}
+    \hfill\vrule\hfill
+    \begin{minipage}{0.45\textwidth}
+        \par These errors can be prevented by ensuring code executes atomically\\
+        \centering
+        \graphics{atomicity2.png}{0.22}
+        \caption{Non-Interleaved (Atomic)}
+    \end{minipage}
+    \label{fig:atomicity1}
+\end{figure}
+\par {\large \textbf{Instruction-level Atomicity}}
+\par This is performed by a single ISA\footnote{Instruction Set Architecture} instruction on a memory location address. Read the old value, calculate a new value, and write the new value to the location.
+\par The \textbf{hardware} ensures that no other threads can access the location until the atomic operation is complete. Any other threads that access the location will typically be held in a queue until its turn. \textbf{All threads perform the atomic operation serially}.
+\par {\large \textbf{Read-Modify-Write Operations}}
+\par Most architectures:
+\begin{itemize}
+    \item \textbf{test\&set}: Reads the value stored in the memory location/register and writes ‘0’ back;
+    \item \textbf{reset}: Writes 1 into the memory location/register;
+    \item \textbf{exchange} or \textbf{swap}: Atomically assigns a value $v$ to a memory location/register and returns the one previous stored in such location;
+    \item \textbf{compare\&swap} / \textbf{compare\&exchange}: Compares the content of a memory location/register against a specified value, and if they match, updates the content of that memory location to a new specified value.
+\end{itemize}
+\par On x86, the \textbf{lock} prefix makes an instruction atomic. When the \textbf{lock} prefix is used with an instruction, the CPU ensures that the instruction is executed atomically. This means that the entire operation completes uninterrupted, with no other processor or core able to access the involved memory location until the operation is finished. The lock prefix is only legal with certain instructions, mainly those that perform read-modify-write operations.
+%
+\clearpage
+%
+\par {\large \textbf{The compare\&swap() primitive}}
+\par  Let ‘$X$’ be a shared register and $old$ and $new$ be two values. The primitive $X$.compare\&swap($old$, $new$) returns a \textbf{boolean} value and is defined by the following code, which is assumed to executed atomically:
+% ! CODE:
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black]
+    \begin{lstlisting}[label={lst:compareswap1}, morekeywords={is, if, then, else, end}, numbers=none, escapechar=!]
+!$X$!.compare&swap(!$old$!, !$new$!) is
+    if (!$X$! = !$old$!) then !$X$! !$\leftarrow$! !$new$!; return(true)
+                     else return (false)
+    end if.\end{lstlisting}
+\end{tcolorbox}
+\note{Check out the documentation of both \textbf{C++} and \textbf{Java} in the Section \ref{appendix:atomic1} of the Appendix.}
+\par {\large \textbf{Competition - Mechanisms to handle Critical Sections}}
+\begin{description}
+    \item[\textbf{Pessimistic:}]
+    Assumes that data conflicts or inconsistencies are \textbf{likely} to occur when multiple threads execute the critical section. A strategy can be \textbf{Mutual exclusion} with locks, semaphores, monitors.
+    \item[\textbf{Optimistic:}]
+    Assumes that data conflicts or inconsistencies are \textbf{not likely} to occur when multiple threads execute the critical section. Strategies may be:
+    \begin{itemize}
+        \item \textbf{Optimistic lock-based} solutions that reduce the size of the critical section to the minimum (studied in optimistic and lazy synchronization);
+        \item \textbf{Lock-free} solutions;
+    \end{itemize}
+\end{description}
+\subsection{Mutual Exclusion}
+\subsubsection{Implementing Mutual Exclusion}
+\par How do we provide the application with an appropriate abstraction level?
+\par \textbf{Designing}: An entry algorithm (also called entry protocol) and an exit algorithm (also called exit protocol) that when used to delimit a critical section ensure that the critical section code is executed by at most one thread at a time.
+\par \textbf{Operations:}
+\begin{itemize}
+    \item \texttt{acquire\_mutex()};
+    \item \texttt{release\_mutex()};
+\end{itemize}
+%
+\clearpage
+%
+\subsubsection{Concurrent executions of acquire\_mutex()}
+\par Only one of the invocations terminates and the corresponding thread $p$ is called \textbf{the winner}. The other invocations stay \textbf{on hold} being \textbf{the losers}
+\par A well-formed thread executes the entry and exit protocols appropriately.
+% ! CODE:
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black]
+    \begin{lstlisting}[label={lst:mutex1}, morekeywords={is, if, then, else, end, procedure}, numbers=none, escapechar=!]
+procedure protected_code(!$in$!) is
+    acquire_mutex(); !$r$! !$\leftarrow$! cs_code(!$in$!); release_mutex(); return(!$r$!)
+end procedure.\end{lstlisting}
+\end{tcolorbox}
+\par {\large \textbf{Mutual Exclusion Problem: Definition}}
+\par The mutual exclusion problem consists in implementing the operations “acquire\_mutex()” and “release\_mutex()” in such a way that the following properties are always satisfied:
+\begin{itemize}
+    \item \textbf{Mutual exclusion}: At most one thread at a time executes the critical section code;
+    \item \textbf{Starvation-freedom}: For any thread $p$, each invocation of acquire\_mutex() by $p$ eventually terminates
+\end{itemize}
+\subsubsection{Properties}
+\begin{description}
+    \item[\textbf{Safety}] Safety properties state that nothing bad happens. They can usually be expressed as invariants\footnote{Condition or property that holds true across the execution of a program}. The invariant here is the mutual exclusion property, which states that at most one thread at a time can execute the critical section code.
+    \note{Note that a solution in which no thread is ever allowed to execute the critical section code would trivially satisfy the safety property.}
+    \begin{itemize}
+        \item \textbf{Example} $\rightarrow$ Mutual exclusion: No two concurrent threads are executing cs\_code($in$) (used in the example code above) simultaneously.
+    \end{itemize}
+    \item[Liveness] Liveness properties state that something good eventually happens.
+    \begin{itemize}
+        \item \textbf{Example} $\rightarrow$ Starvation freedom: Whatever the time $T$, if before $T$ one or several threads have invoked the operation acquire\_mutex() and none of them has terminated its invocation at time $T$, then there is a time $T' > T$ at which a thread that has invoked acquire\_mutex() terminates its invocation. This means that a thread that wants to enter the critical section can be bypassed an arbitrary but finite number of times by other thread.
+    \end{itemize}
+%
+\clearpage
+%
+    \item[Deadlock] Two or more threads are unable to proceed because each is waiting for the other to release a resource or complete a task, resulting in a standstill where none of the them can progress.
+    \begin{itemize}
+        \item Starvation-freedom implies deadlock-freedom: If a thread requests access to the critical section it will eventually get permission and for it to get permission, the system cannot be deadlocked.
+        \item Deadlock-freedom does not imply starvation-freedom: The system is operating. There is a thread willing to get access to the critical section that is always overcome by another later thread.
+    \end{itemize}
+\end{description}
+\par {\large \textbf{The Mutual Exclusion Lock (MutEx) Object}}
+\begin{itemize}
+    \begin{multicols}{2}
+        \item A lock is a shared object with two methods:\\
+            \texttt{LOCK.acquire\_lock()} and \texttt{LOCK.release\_lock()};
+        \item A lock can be in one of two sates:\\
+            \textbf{free} or \textbf{locked};
+        \item It is initialized to the value free;
+        \item Its behavior is defined by a sequential specification:\\
+            From an external observer point of view, all the \texttt{acquire\_lock()} and \texttt{release\_lock()} invocations appear as if they have been invoked one after the other;
+        \item It solves the mutual exclusion problem:\\
+            Solving the mutual exclusion problem $\iff$ implementing a lock object
+    \end{multicols}
+\end{itemize}
+\par {\Large \textbf{MuTex Implementation}}
+\paragraph{} {\large $\rightarrow$ test\&set()/reset()}\\
+\begin{minipage}{0.75\textwidth}
+    % ! CODE:
+    \begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black]
+        \begin{lstlisting}[label={lst:mutex2}, morekeywords={operation, repeat, until, is, if, then, else, end, procedure}, numbers=none, escapechar=!]
+operation acquire_mutex() is
+    repeat !$r \leftarrow$! X.test&set() until (!$r = 1$!) end repeat;
+end operation.
+
+operation release_mutex() is
+    X.reset(); return
+end operation.\end{lstlisting}
+    \end{tcolorbox}
+\end{minipage}
+\hfill\vrule\hfill
+\begin{minipage}{0.2\textwidth}
+    \centering
+    \par And so we have:
+    \begin{description}
+        \item[\cmark] Mutual Exclusion;
+        \item[\cmark] Deadlock Freedom;
+        \item[\xmark] No Starvation;
+        \item[\xmark] Fairness;
+    \end{description}
+\end{minipage}
+\note{Implementations with $swap()$ and $compare\&swap()$ are available in the slides (Lec.7 slide 27 and 28) but they don't provide anything this solution doesn't.}
+%
+\clearpage
+%
+\paragraph{} {\large $\rightarrow$ Deadlock and starvation-free algorithm}\\
+\begin{minipage}{0.75\textwidth}
+    % ! CODE:
+    \begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black]
+        \begin{lstlisting}[label={lst:mutex2}, morekeywords={operation, repeat, until, is, if, then, else, end, procedure}, numbers=none, escapechar=!]
+operation acquire_mutex(!$i$!) is
+    (1) FLAG[!$i$!] !$\leftarrow$! !$up$!;
+    (2) wait (TURN = !$i$!) !$\lor$! (FLAG[TURN] = !$down$!);
+    (3) LOCK.aquire_lock(!$i$!);
+    (4) return()
+end operation.
+
+operation release_mutex(!$i$!) is
+    (5) FLAG[!$i$!] !$\leftarrow down$!
+    (6) if (FLAG[TURN] = !$down$!) then TURN !$\leftarrow$! (TURN mod n) + 1 end if;
+    (7) LOCK.release_lock(!$i$!);
+    (8) return()
+end operation.\end{lstlisting}
+    \end{tcolorbox}
+\end{minipage}
+\hfill\vrule\hfill
+\begin{minipage}{0.2\textwidth}
+    \centering
+    \par And so we have:
+    \begin{description}
+        \item[\cmark] Mutual Exclusion;
+        \item[\cmark] Deadlock Freedom;
+        \item[\cmark] No Starvation;
+        \item[\xmark] Fairness;
+    \end{description}
+\end{minipage}
+\paragraph{} {\large $\rightarrow$ Fairness with fetch\&add()}\\
+\begin{minipage}{0.75\textwidth}
+    % ! CODE:
+    \begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black]
+        \begin{lstlisting}[label={lst:mutex3}, morekeywords={operation, repeat, until, is, if, then, else, end, procedure}, numbers=none, escapechar=!]
+operation acquire_mutex() is
+    !$my_turn \leftarrow$! TICKET.fetch&add();
+    repeat no-op until(!$my_turn =$! NEXT) end repeat;
+    return()
+end operation.
+
+operation release_mutex() is
+    NEXT !$\leftarrow$! NEXT + 1; return()
+end operation.\end{lstlisting}
+    \end{tcolorbox}
+\end{minipage}
+\hfill\vrule\hfill
+\begin{minipage}{0.2\textwidth}
+    \centering
+    \par And so we have:
+    \begin{description}
+        \item[\cmark] Mutual Exclusion;
+        \item[\cmark] Deadlock Freedom;
+        \item[\cmark] No Starvation;
+        \item[\cmark] Fairness;
+    \end{description}
+\end{minipage}
+%
+% Lecture 8
+%
+
+    \subsection{Lock-Free Synchronization}
+
+        \subsubsection{Concurrent Data Structures}
+        \begin{minipage}{0.45\textwidth}
+            \paragraph{Using Locks} Typically simplifies the design but MAY introduce delays and coordination overhead, affecting performance.\\ % ChatGPT
+            \begin{center}
+                \graphics{withlock1.png}{0.55}
+            \end{center}
+            \par This solution has us using a simple programming model but can lead to:
+            \begin{itemize}
+                \item False conflicts;
+                \item Fault-free solutions only;
+                \item Sequential bottleneck
+            \end{itemize}
+        \end{minipage}
+        \hfill\vrule\hfill
+        \begin{minipage}{0.45\textwidth}
+            \paragraph{Without Locks} Aims to improve system responsiveness and throughput under high concurrency but often at the cost of increased complexity in algorithm design and potential challenges in ensuring correct behavior across all scenarios.\\ % ChatGPT
+            \begin{center}
+                \graphics{lockfree1.png}{0.55}
+            \end{center}
+            \par This solution is resilient to failures but can lead to:
+            \begin{itemize}
+                \item Often being (very very) complex;
+                \item Memory consuming;
+                \item Sometimes, weak progress conditions;
+            \end{itemize}
+        \end{minipage}
+%
+\clearpage
+%
+\begin{minipage}[t]{0.45\textwidth}
+    \centering
+    \graphics{locksprog1.png}{0.34}
+\end{minipage}
+\hfill\vrule\hfill
+\begin{minipage}[t]{0.45\textwidth}
+    \centering
+    \graphics{lockfreeprog1.png}{0.34}
+\end{minipage}
+\subsubsection{Progress Conditions}
+\begin{itemize}
+    \item \textbf{Obstruction-freedom} At any point, a single thread executed in isolation (i.e., with all obstructing threads suspended) will complete its operation in a bounded number of steps. All lock-free algorithms are obstruction-free;
+    \item \textbf{Non-Blocking} When the program threads are run sufficiently long, at least one of the threads makes progress (for some sensible definition of progress);
+    \item \textbf{Wait-freedom} Every operation has a bound on the number of steps the algorithm will take before the operation completes: starvation-freedom for all threads in the system.
+\end{itemize}
+\imagec{lockfreeprog2.png}{0.5}{Lock-free Data Structures}{lockfreeprog2}
+\subsubsection{Lock-free Lists}
+\par After the lazy list, the next logical step is to \textbf{eliminate locking entirely}
+\begin{itemize}
+    \item \texttt{contains()} wait-free
+    \item \texttt{add()} lock-free
+    \item \texttt{remove()} lock-free
+\end{itemize}
+\par This guarantees minimal progress in any execution, i.e., some thread will always complete a method call, even if others halt at malicious times. % TODO: understand this
+\par For this we first try to use \texttt{compareAndSet()}:
+% ! CODE:
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black]
+\begin{center}
+    \graphics{CAS1.png}{0.55}
+    \begin{lstlisting}[label={lst:lockfree1}, language=C, morekeywords={}, escapechar=!, numbers=none]
+if A == B then A !$\rightarrow()$! C; return(true)
+          else return(false)
+    \end{lstlisting}
+    \par Supported by Intel, AMD, Arm, etc.
+\end{center}
+\end{tcolorbox}
+%
+\clearpage
+%
+\par But using CAS has a problem. Let's see an example of trying to execute a \texttt{remove($c$)}
+\imagec{cas2.png}{0.8}{Using CAS to verify pointer}{cas2}
+\par But this is not enough, because if we add lets say a $d$ the following might happen:
+\imagec{cas3.png}{0.8}{Using CAS to verify pointer is not enough!}{cas3}
+\par As we can see in the image above, $d$ was not added to the list. So we must prevent manipulation of the node's pointer. The solution is to combine the bit and the pointer in one:
+\imagec{cas4.png}{0.8}{Mark-Bit and Pointer are CASed together (AtomicMarkableReference)}{cas4}
+\par So the solution is to use \textbf{AtomicMarkableReference}, meaning:
+\begin{multicols}{2}
+    \par \textbf{Atomically}
+    \begin{itemize}
+        \item Swing reference and
+        \item Uptade Flag
+    \end{itemize}
+    \par \textbf{Remove in two steps}
+    \begin{itemize}
+        \item Set mark bit in next field
+        \item Redirect predecessor’s pointer with a CAS
+    \end{itemize}
+\end{multicols}
+\par {\large \textbf{Marking a Node}}
+\par AtomicMarkableReference class $\rightarrow$ \texttt{java.util.concurrent.atomic package}\\
+\begin{center}
+    \graphics{node1.png}{1.5}
+\end{center}
+%
+\clearpage
+%
+\par {\textbf{Extracting Reference \& Mark}}
+\begin{verbatim}
+                                public Object get(boolean[] marked);
+\end{verbatim}
+\begin{itemize}
+    \item \texttt{Object} $\rightarrow$ Returns reference
+    \item \texttt{boolean} $\rightarrow$ Returns mark at array index 0
+\end{itemize}
+%
+\par {\textbf{Extracting Reference Only}}
+\begin{verbatim}
+                                    public boolean isMarked();
+\end{verbatim}
+\begin{itemize}
+    \item \texttt{boolean} $\rightarrow$ Value of mark
+\end{itemize}
+%
+\par {\textbf{Changing State}}
+\begin{verbatim}
+                                    public boolean compareAndSet(
+                                        Object expectedRef,
+                                        Object updateRef,
+                                        boolean expectedMark,
+                                        boolean updateMark);
+\end{verbatim}
+\begin{multicols}{2}
+    \begin{itemize}
+        \item \texttt{Object expectedRef} $\rightarrow$ \enquote{If this is the current reference...}
+        \item \texttt{Object updateRef} $\rightarrow$ \enquote{...then change to this new reference }
+        \item \texttt{boolean expectedMark} $\rightarrow$ \enquote{And if this is the current mark ...}
+        \item \texttt{boolean updateMark} $\rightarrow$ \enquote{...then change to this new mark}
+    \end{itemize}
+\end{multicols}
+% TODO Explicar os diagramas dos slides 28 e tal
+\paragraph{Traversing the List} What do we you do when we find a \enquote{logically deleted} node in our path? We finish the job:
+\begin{itemize}
+    \item CAS the predecessor’s next field;
+    \item Proceed (repeat as needed).
+\end{itemize}
+\note{I recommend you check the code in the section \ref{appendix:lockfree} in the appendix containing the implementation using the window class.}
+
+\subsubsection{To Lock or Not to Lock}
+\par Locking vs. Non-blocking: Extremist views on both sides.
+\paragraph{The answer} Nobler to compromise, combine locking and non- blocking, for example, the lazy list combines blocking \texttt{add()} and \texttt{remove()} and a wait-free \texttt{contains()}.
+\note{It is important to remember that blocking/non-blocking is a property of a method}
+%
+\clearpage
+%
+%
+% Lecture 9
+%
+\subsection{Memory Consistency}
+\subsubsection{What is Correct Behavior for a Parallel Memory Hierarchy}
+\par Side-effects of writes are only observable when reads occur. So we will focus on the values returned by reads.
+\paragraph{Intuitive answer} Reading a location should return the latest value written (by any thread). What does \enquote{latest} mean exactly?
+\par Within a thread, it can be defined by program order. But across threads, this becomes a reasonable question?
+\begin{itemize}
+    \item The most recent write in physical time? Hopefully not, because there is no way that the hardware can pull that off. if it takes $> 10$ cycles to communicate between processors, there is no way that a processor $a$ can know what a processor $b$ did 2 clock ticks ago.
+    \item Most recent based upon something else?
+\end{itemize}
+\subsubsection{Refining Intuition}
+\begin{minipage}{0.33\textwidth}
+    % ! CODE:
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black, title= Thread 0]
+    \begin{lstlisting}[label={lst:memhier1}, language=Java, morekeywords={}, numbers=none]
+// write evens to X
+for (i=0; i<N; i+=2){
+    X = i;
+    ...
+}\end{lstlisting}
+\end{tcolorbox}
+\end{minipage}
+\begin{minipage}{0.33\textwidth}
+    % ! CODE:
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black, title= Thread 1]
+    \begin{lstlisting}[label={lst:memhier2}, language=Java, morekeywords={}, numbers=none]
+// write evens to X
+for (j=1; j<N; j+=2){
+    X = j;
+    ...
+}\end{lstlisting}
+\end{tcolorbox}
+\end{minipage}
+\begin{minipage}{0.33\textwidth}
+    % ! CODE:
+\begin{tcolorbox}[colback=nightblue!5!white, colframe=nightblue!75!black, title= Thread 2]
+    \begin{lstlisting}[label={lst:memhier3}, language=Java, morekeywords={}, numbers=none]
+A = X;
+...
+B = X;
+...
+C = X;
+...\end{lstlisting}
+\end{tcolorbox}
+\end{minipage}
+\par What would be some clearly illegal combinations of (A,B,C)?
+\begin{itemize}
+    \item (4,8,1) 
+    \item (9,12,3)
+    \item (7,19,31)
+\end{itemize}
+\par What can we generalize from this?
+\begin{itemize}
+    \item Writes from any particular thread must be consistent with program order. In this example, observed even numbers must be increasing.
+    \item Across threads: writes must be consistent with a valid interleaving of threads (not physical time since the programmer can't rely upon that).
+\end{itemize}
+\par {\large \textbf{Visualizing Intuition}}
+\par Each thread proceeds in program order. Memory accesses interleaved (one at a time) to a single-ported memory (the rate of progress of each thread is unpredictable).
+\paragraph{Recall} \enquote{reading a location should return the latest value written (by any thread)}. \enquote{Latest} means consistent with some interleaving that matches this model.
+\subsubsection{Memory Consistency Model}
+\paragraph{Cache Coherence} Guarantees the consistency and synchronization of data stored in different
+caches within a multiprocessor or multi-core system (Deals with: do all loads and stores to a given memory location behave correctly?)
+\paragraph{Memory Consistency Model} Defines the allowed orderings of multiple threads on a multiprocessor (Deals with: do all loads and stores, even to separate memory locations, behave correctly?)
+%
+\clearpage
+%
+\par This is a complicated thing to understand. The main issue is that $loads$ and $stores$ are very expensive, even on a uni-processor, being easily able to take 10 to 100 cycles. Programmers \textbf{intuitively} expect that the processor atomically performs one instruction at a time in program order, but in reality, if the processor actually operated this way, it would be painfully slow. Instead the processor \textbf{aggressively reorders instructions} to hide memory latency.
+\par And so the outcome is that within a given thread, the processor preserves the program order illusion from the perspective of other threads, all bets are off!
+\paragraph{Hiding Memory Latency} This is a very important step for performance. The idea is to overlap memory accesses with other accesses and computation. Hiding memory latency is simple in uni-processors since you need only to add a \textbf{write buffer} (more on this discussed furter). It is important to note that this affects correctness in multiprocessors!\\
+\begin{figure}[h]
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \graphics{memlat1.png}{0.25}
+    \end{minipage}
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \graphics{memlat2.png}{0.25}
+    \end{minipage}
+    \caption{Hiding Memory Latency}
+    \label{fig:enter-label}
+\end{figure}
+\paragraph{Hiding Memory Latency of Reads} This is possible by using \textbf{\enquote{Out of Order} Pipelining}. This concept was spoken about in the Computer Architecture course. When an instruction is stuck, perhaps there are subsequent instructions that can be executed, and this may include branch prediction, when in the presence of conditional branches.
+\imagec{memlat3.png}{0.5}{Out of Order Pipelining}{memlat3}
+\par This implies that memory accesses may be performed out-of-order!
+\paragraph{How Out-Of-Order Pipelining Works}
+\par Fetch and graduate instructions are executed in-order, but issue instructions are executed out-of-order.
+\image{memlat4.png}{0.45}{memlat4}
+\par Intra-thread dependences are preserved, but memory accesses get reordered.
+%
+\clearpage
+%
+\subsubsection{Uniprocessor Memory Model}
+\par Memory model specifies ordering constraints among accesses
+\paragraph{Uniprocessor model} Memory accesses are atomic and in program order. Like this it is not necessary to maintain sequential order for correctness.
+\begin{itemize}
+    \item \textbf{hardware}: buffering, pipelining
+    \item \textbf{compiler}: register allocation, code motion
+\end{itemize}
+\par This is simple for programmers and allows for high performance.\\
+\begin{figure}
+    \begin{minipage}{0.4\textwidth}
+        \centering
+        \graphics{unimem2.png}{0.08}
+    \end{minipage}
+    \begin{minipage}{0.4\textwidth}
+        \centering
+        \graphics{unimem1.png}{0.3}
+    \end{minipage}
+    \label{fig:unimem2}
+\end{figure}
+\subsubsection{In Parallel Machines (with a Shared Address Space)}
+\par Order between accesses to different locations becomes important, for example
+\begin{center}
+    (Initially A and Ready = 0)
+    \image{parmem1.png}{0.4}{parmem1}
+\end{center}
+\par {\large \textbf{How Unsafe Reordering Can Happen}}
+\par Distribution of memory resources accesses issued in order may be observed out of order
+\image{unsafereordering1.png}{0.6}{unsafereordering1}
+%
+\clearpage
+%
+\par Caches complicate things more due to multiple copies of the same location
+\image{unsafereordering2.png}{0.6}{unsafereordering2}
+\subsubsection{Our Intuitive Model: \enquote{Sequential Consistency} (SC)}
+\par Accesses of each processor are in program order. All accesses appear in sequential order. Any order implicitly assumed by the programmer is maintained
+\image{seqconst1.png}{0.18}{seqconst1}
+\paragraph{Example with Sequential Consistency}
+\par Simple Synchronization:
+\image{seqconst2.png}{0.28}{seqconst2}
+\begin{center}
+    All locations are initialized to 0.
+\end{center}
+\par Possible outcomes for ($x$,$y$): (0,0) - (0,1) - (1,1)
+\par (x,y) = (1,0) is not a possible outcome (i.e Ready = 1, A = 0).
+\begin{itemize}
+    \item We know $a\rightarrow b$ and $c\rightarrow d$ by program order
+    \item $b\rightarrow c$ implies that $a\rightarrow d$
+    \item $y=0$ implies $d\rightarrow a$ which leads to a contradiction
+\end{itemize}
+\par The important thing to note is that real hardware will do this!
+%
+\clearpage
+%
+\paragraph{Implementing Sequential Consistency} One Approach to implementing sequential consistency is to implement cache coherence, a.k.a. writes to the same location are observed in same order by all processors. For each processor, delay the start of memory access until the previous one completes, and so each processor has only one outstanding memory access at a time.
+\par \textbf{But what does it mean for a memory access to complete?}
+\par \textbf{Memory Reads}: A read completes when its return value is bound.
+\image{memreads1.png}{0.5}{memreads1}
+\par \textbf{Memory Writes}: A write completes when the new value is “visible” to other processors
+\image{memwrites1.png}{0.5}{memwrites1}
+\par \textbf{But what does \enquote{visible} mean?} It does NOT mean that other processors have necessarily seen the value yet. It means that the new value is committed to the hypothetical serializable order \textbf{(HSO)}. A later read of $X$ in the HSO will see either this value or a later one (for simplicity, assume that writes occur atomically).
+\par {\large \textbf{Alternatives to Sequential Consistency}}
+\par Sequential consistency maintains order between shared accesses in each processor.
+\image{sumseqconst1.png}{0.45}{sumseqconst1}
+\par But this severely restricts common hardware and compiler optimizations. So alternatives can be relaxing constraints on the memory order:\\
+\graphics{tso1.png}{0.55}%{\textbf{Total Store Ordering} (TSO) (Similar to Intel)}{tso1}
+\hfill\vrule\hfill
+\graphics{pso1.png}{0.55}%{\textbf{Partial Store Ordering} (PSO)}{pso1}
+\begin{multicols}{2}
+    \par \textbf{Total Store Ordering} (TSO) (Similar to Intel)
+    \par \textbf{Partial Store Ordering} (PSO)
+\end{multicols}
+%
+\clearpage
+%
+\paragraph{Performance Impact of TSO vs SC} TSO Can use a write buffer and the write latency is effectively hidden.\\
+\begin{figure}[h]
+    \begin{minipage}{0.35\textwidth}
+        \centering
+        \graphics{memlat2.png}{0.25}
+    \end{minipage}
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \graphics{tsovssc1.png}{0.4}
+    \end{minipage}
+    \caption{TSO vs SC}
+    \label{fig:tsovssc}
+\end{figure}
+\par And this makes us ask \textbf{can programs live with weaker memory orders?}
+\par For this, the program needs to be \textbf{correct}, a.k.a. achieve the same results as sequential consistency, and most programs don't require strict ordering (for all of the time) to achiveve \enquote{correctness}
+\imagec{suforder1.png}{0.35}{Program Order vs Sufficient Order}{suforder1}
+\par {\large \textbf{Optimizations for Synchronized Programs}}\\
+\begin{minipage}{0.4\textwidth}
+    \par The intuition is that may parallel programs have mixtures of \enquote{private} and \enquote{public} parts. The \enquote{private} parts must be protected by synchronization (e.g. locks)
+\end{minipage}
+\begin{minipage}{0.6\textwidth}
+    \raggedright
+    \graphics{syncopt1.png}{0.65}
+\end{minipage}
+%
+\clearpage
+%
+\par And so we exploit information about synchronization. Properly synchronized programs should yield the same result as on an SC machine.
+\image{syncopt2.png}{0.6}{synchopt2}
+\paragraph{Intel's Memory Fence Operation (MFENCE)} MFENCE operantion enforces the ordering seen above:
+\begin{itemize}
+    \item Does not begin until all prior reads \& writes from that thread have completed.
+    \item No subsequent read or write from that thread can start until after it finishes
+\end{itemize}
+\image{syncopt3.png}{0.5}{syncopt3}
+
+\par A MFENCE operation does \textbf{not} push values out to other threads (it's not a magic \enquote{make every thread up-to-date} operation). It simply stalls the thread that performs the MFENCE until write buffer empty.
+\par \textbf{Revisiting the previous example in Fig \ref{fig:seqconst2}}, we want to use \textbf{MFENCE} operations to fix this:
+\begin{figure}[h]
+    \begin{minipage}[t]{0.5\textwidth}
+        \begin{center}
+            \textbf{P0}\\
+            \texttt{
+            A = 1;\\
+            {\color{green} MFENCE};\\
+            Ready = 1;
+            }
+        \end{center}
+    \end{minipage}
+    \begin{minipage}[t]{0.5\textwidth}
+        \begin{center}
+            \textbf{P1}\\
+            \bigskip
+            \texttt{
+            X = Ready;\\
+            {\color{green} MFENCE};\\
+            y = A;
+            }
+        \end{center}
+    \end{minipage}
+    \caption{}
+    \label{fig:brokenexample1}
+\end{figure}
+%
+\clearpage
+%
+\paragraph{\enquote{Release Consistency}}
+\begin{itemize}
+    \item Lock operation: only gains (\enquote{\textbf{acquires}}) permission to access data;
+    \item Unlock operation: only gives away (\enquote{\textbf{releases}}) permission to access data;
+\end{itemize}
+\image{releasecost1.png}{0.6}{releasecost1}
+\par In addition to \textbf{MFENCE}, Intel also supports two other fence operations:
+\begin{itemize}
+    \item \textbf{LFENCE:} Serializes only with respect to load operations (not stores!)
+    \item \textbf{SFENCE:} Serializes only with respect to store operations (not loads!)
+\end{itemize}
+\par So going back to the Fig. \ref{fig:brokenexample1} we can use these to make it even better:
+\begin{figure}[h]
+    \begin{minipage}[t]{0.5\textwidth}
+        \begin{center}
+            \textbf{P0}\\
+            \texttt{
+            A = 1;\\
+            {\color{green} SFENCE};\\
+            Ready = 1;
+            }
+        \end{center}
+    \end{minipage}
+    \begin{minipage}[t]{0.5\textwidth}
+        \begin{center}
+            \textbf{P1}\\
+            \bigskip
+            \texttt{
+            X = Ready;\\
+            {\color{green} LFENCE};\\
+            y = A;
+            }
+        \end{center}
+    \end{minipage}
+    \caption{}
+    \label{fig:brokenexample2}
+\end{figure}
+%
+% Lecture 10
+%
+\subsection{Concurrency Errors}
+\par 

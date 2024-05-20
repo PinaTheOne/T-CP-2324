@@ -1,0 +1,289 @@
+%%%%%%%%%%%%%%%%%%%%%%%%
+%       Version        %
+%          1.3.1       %
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+%       Packages       %
+%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage[a4paper, total={7in, 9.5in}]{geometry} % Used to define margins
+\usepackage[skip=5pt, indent=5pt]{parskip}         % Used to define paragraphs and indents
+\usepackage{fancyhdr}                              % Used to customize the header
+
+\usepackage[perpage]{footmisc} % Required for reseting footnote counter each page
+\usepackage{multicol}    % Required to use multiple columns
+\usepackage{indentfirst} % Required to indent /par after sections
+\usepackage{graphicx}    % Required for inserting images.
+\usepackage{amsmath}     % Required for inserting math symbols.
+\usepackage{mathtools}   % More math stuff
+\usepackage{amsfonts}    % Required for set of real numbers.
+\usepackage{centernot}   % Adds a command that puts a / on the center of a symbol.
+\usepackage{pifont}      % Used to make the checkmark and crossmark commands
+\usepackage{subfig}      % Used to put 2 figures side by side.
+\usepackage{tcolorbox}   % Used to create the Colored Boxes of Definition, Note, and others.
+\usepackage{enumitem}    % Used to make the bullet lists
+\usepackage{xcolor}      % Used to color text
+\usepackage{hyperref}    % Used to make Links between the document
+\usepackage{listings}    % Used to make good code snippets
+\usepackage{tikz}        % Used to draw figures
+\usetikzlibrary{graphs}  % Used to create Graphs
+\usepackage{sectsty}     % Used to set colour of chapters
+\usepackage{lastpage}    % Used to get the reference to the last page
+\usepackage{csquotes}    % Used to make correct quotation marks
+\usepackage{pdfpages}    % Used to add the cover page
+%%%%%%%%%%%%%%%%%%%%%%%%
+%         Colors       %
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+\definecolor{codegreen}{rgb}{0.4, 0.85, 0.2}
+\definecolor{codegray}{rgb}{0.4, 0.4, 0.4}
+\definecolor{codeorange}{rgb}{1, 0.49, 0}
+\definecolor{blackcolor}{rgb}{0.95, 0.95, 0.96}
+\definecolor{nightblue}{rgb}{0.027, 0.086, 0.188}
+\definecolor{darkpurple}{rgb}{0.188, 0.098, 0.204}
+\definecolor{lightblue}{rgb}{0.267, 0.447, 0.69}
+\colorlet{lighterblue}{blue!20!lightblue!80}
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+%         Setup        %
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Chapter Colors
+
+%\sectionfont{\color{lightblue}}
+%\subsectionfont{\color{lighterblue}} 
+
+% Footer and Header with images and Fancy Footer
+
+%\pagestyle{fancy}
+%\lhead{\begin{picture}(0,0) \put(5,-15){\includegraphics[width=2.25cm]{Images/Header/nova.png}} \end{picture}}    % Sets the right part of the header
+%\rhead{\begin{picture}(0,0) \put(-80,-10){\includegraphics[width=3cm]{Images/Header/axians.png}} \end{picture}} % Sets the left part of the header
+%\fancyfoot{}
+%\renewcommand{\footrulewidth}{0.4pt}
+%\lfoot{SAP - Full Stack Developer}
+%\cfoot{Pag. \thepage \hspace{1pt} de \pageref{LastPage}}
+%\rfoot{Tomás Gabriel}
+
+% Figure title
+
+\renewcommand{\figurename}{Fig.}
+
+% Table of Contents
+
+\renewcommand{\contentsname}{Contents}
+
+% List of Figures
+
+\renewcommand{\listfigurename}{Índice de Figuras}
+
+% Hyperref Setup
+
+\hypersetup{
+pdfborder = {0 0 0},
+colorlinks = false,
+pdftitle = Concurrency and Parallelism Vol. I,
+pdfsubject = First CP Test,
+pdfauthor = Tomás Gabriel
+}
+
+% Code Snippets Setup
+
+\renewcommand\lstlistingname{Source Code}
+\renewcommand\lstlistlistingname{Source Code}
+
+\lstset{
+    language=Java,
+    commentstyle =\color{codegray},
+    keywordstyle=\color{teal},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{red},
+    basicstyle=\ttfamily,
+    emph={String,int,char,double,float,unsigned,void,boolean, new, false, true, return, while, do, for, if, else},
+    emphstyle={\color{magenta}},
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2,
+    xleftmargin=10pt,
+    classoffset=1,
+}
+
+% TODO: Verificar se é necessário
+
+\newenvironment{java}[1]{
+\begin{tcolorbox}[colback=blue!5!white, colframe=blue!75!black, title= Definition: #1]
+}{
+\end{tcolorbox}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+%       Commands       %
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Command to make a figure out of a graph (gives a label and caption to a graph)
+\newcommand{\graphfigc}[3]{
+\begin{figure}[h]
+    \centering
+    #3
+    \caption{#2}
+    \label{fig:#1}
+\end{figure}
+}
+
+\newcommand{\graphfig}[2]{
+\begin{figure}[h]
+    \centering
+    #2
+    \label{fig:#1}
+\end{figure}
+}
+
+% Command for item outside list
+\def\myitem{\hangindent=5em\bullet}
+
+% Commands for images and figures with chapters (Inside Each Chapter use \renewcommand)
+\newcommand{\image}[3]{\globimage{#1}{UNDEFINED}{#2}{#3}}
+\newcommand{\imagec}[4]{\globimagec{#1}{UNDEFINED}{#2}{#3}{#4}}
+\newcommand{\graphics}[2]{\includegraphics[scale=#2]{Images/Chapter UNDEFINED/#1}}
+
+% Commands for green check mark and red cross mark
+\newcommand{\cmark}{{\color{green}\ding{51}}}
+\newcommand{\xmark}{{\color{red}\ding{55}}}
+
+% Command for a simple title text
+\newcommand{\mytitle}[1]{
+\begin{large}
+\textbf{#1} \par
+\end{large}
+}
+
+% Command for centering some specific text
+\newcommand{\mycenter}[1]{
+\begin{center}
+#1
+\end{center}}
+
+% Command for making a blue box arround some text
+\newcommand{\bluebox}[1]{
+\begin{tcolorbox}[colback=blue!5!white, colframe=blue!75!black]
+\centering
+#1
+\end{tcolorbox}}
+
+% Command for making a blue box arround some text with a title
+\newcommand{\tbluebox}[2]{
+\begin{tcolorbox}[colback=blue!5!white, colframe=blue!75!black, title=#1]
+\centering
+#2
+\end{tcolorbox}}
+
+% Command for making a definition, given the title and the actual text in the definition
+\newcommand{\definition}[2]{
+\begin{tcolorbox}[colback=blue!5!white, colframe=blue!75!black, title= Definition: #1]
+#2
+\end{tcolorbox}}
+
+% Command for explaining the "Objective", given the actual text in the objective
+\newcommand{\objective}[1]{
+\begin{tcolorbox}[colback=darkpurple!5!white, colframe=darkpurple!75!black, title= Objetivo]
+#1
+\end{tcolorbox}}
+
+% Command for showing time complexities, given the title and the actual text
+\newcommand{\timecomplex}[3]{
+\begin{tcolorbox}[colback=green!5!white, colframe=green!75!black, title= Complexidade Temporal do #1]
+\emph{Implementação do Grafo:} #2\paragraph{}
+\par
+#3
+\end{tcolorbox}}
+% Command for showing time complexities, given the title and the actual text in english
+\newcommand{\timecomplexeng}[2]{
+\begin{tcolorbox}[colback=green!5!white, colframe=green!75!black, title= Time Complexity of #1]
+\par
+#2
+\end{tcolorbox}}
+
+% Command for showing space complexities with graph impl, given the title and the actual text
+\newcommand{\spacecomplexg}[3]{
+\begin{tcolorbox}[colback=darkpurple!5!white, colframe=darkpurple!75!black, title= Complexidade Espacial do #1]
+\emph{Implementação do Grafo:} #2\paragraph{}
+\par
+#3
+\end{tcolorbox}}
+
+% Command for showing space complexities, given the title and the actual text
+\newcommand{\spacecomplex}[2]{
+\begin{tcolorbox}[colback=darkpurple!5!white, colframe=darkpurple!75!black, title= Complexidade Espacial do #1]
+#2
+\end{tcolorbox}}
+
+% Command for making a simple note
+\newcommand{\note}[1]{
+\begin{tcolorbox}[colback=black!5!white, colframe=white!15!black, title= Note]
+#1
+\end{tcolorbox}}
+
+%Command for adding a new picture
+\newcommand{\globimage}[4]{\begin{figure}[h]
+    \centering
+    \includegraphics[scale = #3]{Images/Chapter #2/#1}
+    \caption{}
+    \label{fig:#4}
+\end{figure}}
+
+%Command for adding a new picture with a caption
+\newcommand{\globimagec}[5]{\begin{figure}[h]
+    \centering
+    \includegraphics[scale = #3]{Images/Chapter #2/#1}
+    \caption{#4}
+    \label{fig:#5}
+\end{figure}}
+
+% TODO: Verificar se funciona
+\newcommand{\code}[2]{
+\begin{lstlisting}[language=Java, label={lst:#1}, mathescape=true, breaklines=true]
+#2
+\end{lstlisting}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%         Style         %
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Header
+
+\pagestyle{fancy}
+\lhead{Concurrency and Parallelism Vol. II}   % Sets the right part of the header
+\rhead{By Tomás Gabriel}        % Sets the left part of the header
+
+% Title page
+
+\title{Concurrency and Parallelism \\ Vol.II}
+\author{Tomás Gabriel}
+\date{Version 1.0.0}
+
+% Table of Contents
+
+%Comando para formatar as secções, para aparecerem com o formato:
+%Capítulo #: <titulo>
+\makeatletter
+% we use \prefix@<level> only if it is defined
+\renewcommand{\@seccntformat}[1]{%
+  \ifcsname prefix@#1\endcsname
+    \csname prefix@#1\endcsname
+  \else
+    \csname the#1\endcsname\quad
+  \fi}
+% define \prefix@section
+\newcommand\prefix@section{\thesection. }
+\makeatother
+
+% Starts the section counter at the given value -1
+\setcounter{section}{0}
+
+% Only subsections are shown in table of contents
+\setcounter{tocdepth}{2}
